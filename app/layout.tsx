@@ -6,8 +6,8 @@ import "./globals.css";
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
-const title = "Atelier — Alex Morgan";
-const description = "The interactive desktop portfolio of independent product and brand designer Alex Morgan.";
+const title = "Atelier — Asier";
+const description = "The interactive desktop portfolio of independent product and brand designer Asier.";
 
 export async function generateMetadata(): Promise<Metadata> {
   const requestHeaders = await headers();
@@ -19,7 +19,7 @@ export async function generateMetadata(): Promise<Metadata> {
     title,
     description,
     icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
-    openGraph: { title, description, type: "website", images: [{ url: image, width: 1536, height: 1024, alt: "Atelier — Alex Morgan" }] },
+    openGraph: { title, description, type: "website", images: [{ url: image, width: 1536, height: 1024, alt: "Atelier — Asier" }] },
     twitter: { card: "summary_large_image", title, description, images: [image] },
   };
 }

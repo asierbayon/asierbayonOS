@@ -161,7 +161,7 @@ const apps = [
 ] as const;
 
 type AppId = (typeof apps)[number]["id"];
-type WindowState = { kind: "project"; project: Project } | { kind: "app"; app: AppId } | { kind: "folder" };
+type WindowState = { kind: "project"; project: Project } | { kind: "app"; app: AppId } | { kind: "folder" } | { kind: "video" };
 
 function Clock({ compact = false }: { compact?: boolean }) {
   const [now, setNow] = useState<Date | null>(null);
@@ -261,25 +261,61 @@ function AppWindow({ app, onClose }: { app: AppId; onClose: () => void }) {
     );
   }
   if (app === "claude") {
-    return <WindowShell title="Claude Code" onClose={onClose} variant="dark"><div className="terminal"><p><span>alex@atelier</span> ~ % claude</p><p className="terminal-logo">✳</p><h2>Good afternoon, Alex</h2><p>What are we making today?</p><p className="prompt"><span>›</span> <i>Try “build a portfolio that feels like a place”</i><b /></p><small>Atelier workspace · main</small></div></WindowShell>;
+    return <WindowShell title="Claude Code" onClose={onClose} variant="dark"><div className="terminal"><p><span>asier@atelier</span> ~ % claude</p><p className="terminal-logo">✳</p><h2>Good afternoon, Asier</h2><p>What are we making today?</p><p className="prompt"><span>›</span> <i>Try “build a portfolio that feels like a place”</i><b /></p><small>Atelier workspace · main</small></div></WindowShell>;
   }
   if (app === "notes") {
-    return <WindowShell title="Notes" onClose={onClose}><div className="notes-app"><aside><b>Notes</b><span>Today</span><p>About Alex</p><span>Yesterday</span><p>Things to make</p><p>People to call</p></aside><article><small>18 July 2026 at 14:08</small><h2>About Alex</h2><p>Independent product and brand designer working across identity, campaigns, digital experiences, and editorial systems.</p><p>I like clear ideas, good images, useful details, and work that earns a second look.</p><h3>Currently</h3><ul><li>Available for selected collaborations</li><li>Based between London and Copenhagen</li><li>Always open to a good coffee</li></ul></article></div></WindowShell>;
+    return <WindowShell title="Notes" onClose={onClose}><div className="notes-app"><aside><b>Notes</b><span>Today</span><p>About Asier</p><span>Yesterday</span><p>Things to make</p><p>People to call</p></aside><article><small>18 July 2026 at 14:08</small><h2>About Asier</h2><p>Independent product and brand designer working across identity, campaigns, digital experiences, and editorial systems.</p><p>I like clear ideas, good images, useful details, and work that earns a second look.</p><h3>Currently</h3><ul><li>Available for selected collaborations</li><li>Based in Zurich</li><li>Always open to a good coffee</li></ul></article></div></WindowShell>;
   }
   if (app === "photos") {
     return <WindowShell title="Photos" onClose={onClose}><div className="photos-app"><header><h2>Library</h2><span>10 Photos</span></header><div>{projects.map((project) => <img key={project.id} src={project.image} alt={project.title} />)}</div></div></WindowShell>;
   }
   if (app === "x") {
-    return <WindowShell title="X" onClose={onClose}><div className="social-app"><div className="avatar">AM</div><div><h2>Alex Morgan <small>@alexmakes</small></h2><p>Independent designer. Images, identities, interfaces—and occasionally a desktop that looks suspiciously like 2007.</p><div className="social-card"><img src="/atelier/projects/bloom-sneaker.jpg" alt="Bloom sneaker campaign" /><p>New work: Bloom, where trail running meets full bloom.</p></div><small>9:42 AM · Jul 18, 2026</small></div></div></WindowShell>;
+    return <WindowShell title="X" onClose={onClose}><div className="social-app"><div className="avatar">AB</div><div><h2>Asier <small>@asiermakes</small></h2><p>Independent designer. Images, identities, interfaces—and occasionally a desktop that looks suspiciously like 2007.</p><div className="social-card"><img src="/atelier/projects/bloom-sneaker.jpg" alt="Bloom sneaker campaign" /><p>New work: Bloom, where trail running meets full bloom.</p></div><small>9:42 AM · Jul 18, 2026</small></div></div></WindowShell>;
   }
   if (app === "mail") {
-    return <WindowShell title="New Message" onClose={onClose}><form className="mail-app" action="mailto:hello@alexmorgan.studio"><label>To: <span>Alex Morgan &lt;hello@alexmorgan.studio&gt;</span></label><label>Subject: <input aria-label="Subject" placeholder="Project enquiry" /></label><textarea aria-label="Message" placeholder="Hello Alex," /><button type="submit">Send</button></form></WindowShell>;
+    return <WindowShell title="New Message" onClose={onClose}><form className="mail-app" action="mailto:hello@asier.studio"><label>To: <span>Asier &lt;hello@asier.studio&gt;</span></label><label>Subject: <input aria-label="Subject" placeholder="Project enquiry" /></label><textarea aria-label="Message" placeholder="Hello Asier," /><button type="submit">Send</button></form></WindowShell>;
   }
   return <WindowShell title="Trash" onClose={onClose}><div className="empty-trash"><img src="/atelier/doc-icons/trash.png" alt="" /><h2>Trash is Empty</h2><p>Nothing to see here. A rare and beautiful state.</p></div></WindowShell>;
 }
 
-function FolderWindow({ onClose }: { onClose: () => void }) {
-  return <WindowShell title="Don't Open" onClose={onClose}><div className="folder-app"><h2>You opened it.</h2><p>That’s exactly the kind of curiosity I like working with.</p><a href="mailto:hello@alexmorgan.studio">Let’s make something ↗</a></div></WindowShell>;
+function FolderWindow({ onClose, onOpenVideo }: { onClose: () => void; onOpenVideo: () => void }) {
+  const sidebar = [
+    ["iCloud", "Recents", "Shared"],
+    ["Favorites", "Desktop", "Applications", "Projects", "MotionIn.Design", "Work", "Movies", "Downloads", "Documents"],
+  ];
+
+  return <WindowShell title="Don't Open" onClose={onClose}>
+    <div className="finder-app">
+      <div className="finder-toolbar">
+        <div className="finder-arrows"><span>‹</span><span>›</span></div>
+        <b><span className="tiny-folder" />Don&apos;t Open</b>
+        <div className="finder-tools"><button aria-label="Icon view">⌘</button><button aria-label="List view">☷</button><button aria-label="Column view">▥</button><button aria-label="Gallery view">▧</button><span className="finder-search" /></div>
+      </div>
+      <div className="finder-content">
+        <aside>{sidebar.map((group) => <div key={group[0]}><h3>{group[0]}</h3>{group.slice(1).map((item, index) => <p key={item}><i className={index === 0 && group[0] === "Favorites" ? "blue" : ""} />{item}</p>)}</div>)}</aside>
+        <div className="finder-files">
+          <button className="movie-file" aria-label="Open Dont play this video.mov" onDoubleClick={onOpenVideo} onClick={onOpenVideo}>
+            <span className="mov-icon"><i /><b>▻</b><small>MOV</small></span>
+            <strong>Dont play this<br />video.mov</strong>
+          </button>
+        </div>
+      </div>
+      <div className="finder-status"><div><span className="tiny-folder" />Macintosh HD <b>›</b> Users <b>›</b> asier <b>›</b> Desktop <b>›</b> <strong>Don&apos;t Open</strong></div><span>1 item</span></div>
+    </div>
+  </WindowShell>;
+}
+
+function VideoWindow({ onClose }: { onClose: () => void }) {
+  return <WindowShell title="Dont play this video.mov" onClose={onClose} variant="dark">
+    <div className="video-app">
+      <iframe
+        src="https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1&rel=0&modestbranding=1"
+        title="Rick Astley — Never Gonna Give You Up"
+        allow="autoplay; encrypted-media; picture-in-picture"
+        allowFullScreen
+      />
+    </div>
+  </WindowShell>;
 }
 
 export default function Home() {
@@ -302,8 +338,8 @@ export default function Home() {
   };
 
   return (
-    <main className="desktop" aria-label="Alex Morgan — interactive desktop portfolio" onClick={(event) => { if (event.target === event.currentTarget) setSelected(null); }}>
-      <h1 className="sr-only">Alex Morgan — Independent Product and Brand Designer</h1>
+    <main className="desktop" aria-label="Asier — interactive desktop portfolio" onClick={(event) => { if (event.target === event.currentTarget) setSelected(null); }}>
+      <h1 className="sr-only">Asier — Independent Product and Brand Designer</h1>
 
       <div className="menu-bar desktop-only">
         <div><span className="menu-mark" /><b>Atelier</b><span>File</span><span>Edit</span><span>View</span><span>Window</span><span>Help</span></div>
@@ -331,9 +367,10 @@ export default function Home() {
 
       {activeWindow?.kind === "project" && <ProjectWindow project={activeWindow.project} onClose={closeWindow} />}
       {activeWindow?.kind === "app" && <AppWindow app={activeWindow.app} onClose={closeWindow} />}
-      {activeWindow?.kind === "folder" && <FolderWindow onClose={closeWindow} />}
+      {activeWindow?.kind === "folder" && <FolderWindow onClose={closeWindow} onOpenVideo={() => setActiveWindow({ kind: "video" })} />}
+      {activeWindow?.kind === "video" && <VideoWindow onClose={closeWindow} />}
 
-      <div className="portfolio-stamp desktop-only"><span>↘</span><div><small>Independent designer</small><b>Alex Morgan</b></div></div>
+      <div className="portfolio-stamp desktop-only"><span>↘</span><div><small>Independent designer</small><b>Asier</b></div></div>
     </main>
   );
 }
