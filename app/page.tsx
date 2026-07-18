@@ -280,22 +280,39 @@ function AppWindow({ app, onClose }: { app: AppId; onClose: () => void }) {
 
 function FolderWindow({ onClose, onOpenVideo }: { onClose: () => void; onOpenVideo: () => void }) {
   const sidebar = [
-    ["iCloud", "Recents", "Shared"],
-    ["Favorites", "Desktop", "Applications", "Projects", "MotionIn.Design", "Work", "Movies", "Downloads", "Documents"],
+    { title: "iCloud", items: [{ label: "Recents", icon: "recents" }, { label: "Shared", icon: "shared" }] },
+    { title: "Favorites", items: [
+      { label: "Desktop", icon: "desktop" },
+      { label: "Applications", icon: "applications" },
+      { label: "Projects", icon: "projects" },
+      { label: "MotionIn.Design", icon: "motion" },
+      { label: "Work", icon: "work" },
+      { label: "Movies", icon: "movies" },
+      { label: "Downloads", icon: "downloads" },
+      { label: "Documents", icon: "documents" },
+    ] },
   ];
 
   return <WindowShell title="Don't Open" onClose={onClose}>
     <div className="finder-app">
       <div className="finder-toolbar">
-        <div className="finder-arrows"><span>‹</span><span>›</span></div>
+        <div className="finder-arrows"><button aria-label="Back"><span /></button><button aria-label="Forward" disabled><span /></button></div>
         <b><span className="tiny-folder" />Don&apos;t Open</b>
-        <div className="finder-tools"><button aria-label="Icon view">⌘</button><button aria-label="List view">☷</button><button aria-label="Column view">▥</button><button aria-label="Gallery view">▧</button><span className="finder-search" /></div>
+        <div className="finder-tools">
+          <div className="view-switcher">
+            <button className="active" aria-label="Icon view"><span className="view-grid"><i /><i /><i /><i /></span></button>
+            <button aria-label="List view"><span className="view-list"><i /><i /><i /></span></button>
+            <button aria-label="Column view"><span className="view-columns"><i /><i /><i /></span></button>
+            <button aria-label="Gallery view"><span className="view-gallery"><i /></span></button>
+          </div>
+          <span className="finder-search" />
+        </div>
       </div>
       <div className="finder-content">
-        <aside>{sidebar.map((group) => <div key={group[0]}><h3>{group[0]}</h3>{group.slice(1).map((item, index) => <p key={item}><i className={index === 0 && group[0] === "Favorites" ? "blue" : ""} />{item}</p>)}</div>)}</aside>
+        <aside>{sidebar.map((group) => <div key={group.title}><h3>{group.title}</h3>{group.items.map((item) => <p key={item.label}><i className={`sidebar-icon ${item.icon}`}><span /></i>{item.label}</p>)}</div>)}</aside>
         <div className="finder-files">
           <button className="movie-file" aria-label="Open Dont play this video.mov" onDoubleClick={onOpenVideo} onClick={onOpenVideo}>
-            <span className="mov-icon"><i /><b>▻</b><small>MOV</small></span>
+            <span className="mov-icon"><i className="camera-body" /><b className="camera-lens" /><small>MOV</small></span>
             <strong>Dont play this<br />video.mov</strong>
           </button>
         </div>
