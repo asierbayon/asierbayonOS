@@ -421,7 +421,6 @@ export default function Home() {
         return <VideoWindow key={window.id} onClose={onClose} {...stackProps} />;
       })}
 
-      <div className="portfolio-stamp desktop-only"><span>↘</span><div><small>Independent designer</small><b>Asier</b></div></div>
     </main>
   );
 }
