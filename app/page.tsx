@@ -339,6 +339,7 @@ export default function Home() {
   const [activeWindow, setActiveWindow] = useState<WindowState | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [showMore, setShowMore] = useState(false);
+  const [dockHover, setDockHover] = useState<number | null>(null);
 
   const openProject = (project: Project) => {
     setSelected(project.id);
@@ -371,8 +372,15 @@ export default function Home() {
         </button>
       </div>
 
-      <div className="dock desktop-dock desktop-only" aria-label="Applications">
-        {apps.map((app, index) => <div className={`dock-slot ${index === 4 || index === 6 ? "separated" : ""}`} key={app.id}><span>{app.name}</span><button aria-label={app.name} onClick={() => openApp(app.id)}><img src={app.icon} alt="" /></button></div>)}
+      <div className="dock desktop-dock desktop-only" aria-label="Applications" onMouseLeave={() => setDockHover(null)}>
+        {apps.map((app, index) => {
+          const distance = dockHover === null ? Infinity : Math.abs(dockHover - index);
+          const size = distance === 0 ? 96 : distance === 1 ? 68.375 : 56;
+          return <div className={`dock-slot ${index === 4 || index === 6 ? "separated" : ""}`} key={app.id}>
+            <span>{app.name}</span>
+            <button style={{ width: size, height: size }} aria-label={app.name} onMouseEnter={() => setDockHover(index)} onFocus={() => setDockHover(index)} onBlur={() => setDockHover(null)} onClick={() => openApp(app.id)}><img src={app.icon} alt="" /></button>
+          </div>;
+        })}
       </div>
 
       <div className="dock mobile-dock" aria-label="Applications">

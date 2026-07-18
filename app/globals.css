@@ -28,15 +28,17 @@ button { color: inherit; }
 .desktop-icon.folder { left: 6%; top: 70%; }
 .desktop-icon.folder img { width: 86px; height: 86px; object-fit: contain; border: 0; border-radius: 0; box-shadow: none; }
 
-.dock { position: absolute; z-index: 35; left: 50%; bottom: 14px; transform: translateX(-50%); display: flex; align-items: flex-end; gap: 5px; padding: 10px 12px 11px; border: 1px solid rgba(255,255,255,.25); border-radius: 27px; background: linear-gradient(145deg, rgba(36,35,35,.68), rgba(22,24,23,.74)); box-shadow: inset 0 0 0 1px rgba(0,0,0,.28), 0 13px 35px rgba(0,0,0,.44); backdrop-filter: blur(22px) saturate(130%); }
+.dock { position: absolute; z-index: 35; left: 50%; bottom: 14px; height: 80px; transform: translateX(-50%); display: flex; align-items: flex-end; gap: 6px; padding: 11px 13px 12px; border: 1px solid rgba(255,255,255,.25); border-radius: 27px; background: linear-gradient(145deg, rgba(36,35,35,.68), rgba(22,24,23,.74)); box-shadow: inset 0 0 0 1px rgba(0,0,0,.28), 0 13px 35px rgba(0,0,0,.44); backdrop-filter: blur(22px) saturate(130%); }
 .dock-slot { position: relative; display: flex; align-items: center; }
-.dock-slot.separated { margin-left: 8px; padding-left: 13px; }
+.dock-slot.separated { margin-left: 5px; padding-left: 6px; }
 .dock-slot.separated::before { content: ""; position: absolute; left: 0; height: 42px; width: 1px; background: rgba(255,255,255,.21); }
 .dock-slot > span { opacity: 0; pointer-events: none; position: absolute; left: 50%; bottom: calc(100% + 13px); transform: translateX(-50%) translateY(5px); white-space: nowrap; border-radius: 6px; padding: 5px 8px; background: rgba(35,35,35,.82); color: white; font-size: 11px; box-shadow: 0 4px 14px rgba(0,0,0,.25); transition: .15s ease; }
 .dock-slot:hover > span { opacity: 1; transform: translateX(-50%) translateY(0); }
-.dock button { border: 0; background: transparent; padding: 0; width: 52px; height: 52px; cursor: pointer; transition: transform .18s cubic-bezier(.2,.8,.2,1); }
-.dock button:hover { transform: translateY(-7px) scale(1.12); }
-.dock button:active { transform: translateY(-2px) scale(.96); }
+.desktop-dock button { border: 0; background: transparent; padding: 0; width: 56px; height: 56px; cursor: pointer; transform-origin: 50% 100%; transition: width .32s cubic-bezier(.22, 1, .36, 1), height .32s cubic-bezier(.22, 1, .36, 1), filter .18s ease; will-change: width, height; }
+.desktop-dock button:hover { filter: brightness(1.04); }
+.desktop-dock button:active { transform: scale(.96); }
+.mobile-dock button { border: 0; background: transparent; padding: 0; cursor: pointer; transition: transform .18s cubic-bezier(.2,.8,.2,1); }
+.mobile-dock button:active { transform: scale(.96); }
 .dock img { display: block; width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 5px 5px rgba(0,0,0,.32)); }
 .mobile-dock, .mobile-clock { display: none; }
 
