@@ -162,6 +162,8 @@ const apps = [
 
 type AppId = (typeof apps)[number]["id"];
 type WindowState = { kind: "project"; project: Project } | { kind: "app"; app: AppId } | { kind: "folder" } | { kind: "video" };
+type OpenWindow = { id: number; content: WindowState; offsetX: number; offsetY: number };
+type WindowStackProps = { zIndex: number; offsetX: number; offsetY: number; onFocus: () => void };
 
 function Clock({ compact = false }: { compact?: boolean }) {
   const [now, setNow] = useState<Date | null>(null);
@@ -190,7 +192,7 @@ function DesktopIcon({ project, selected, onOpen }: { project: Project; selected
   );
 }
 
-function WindowShell({ title, children, onClose, variant = "paper" }: { title: string; children: React.ReactNode; onClose: () => void; variant?: "paper" | "dark" }) {
+function WindowShell({ title, children, onClose, variant = "paper", zIndex, offsetX, offsetY, onFocus }: { title: string; children: React.ReactNode; onClose: () => void; variant?: "paper" | "dark" } & WindowStackProps) {
   const windowRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
 
@@ -211,7 +213,14 @@ function WindowShell({ title, children, onClose, variant = "paper" }: { title: s
   };
 
   return (
-    <div className={`window-shell ${variant === "dark" ? "dark-window" : ""}`} ref={windowRef} role="dialog" aria-label={title}>
+    <div
+      className={`window-shell ${variant === "dark" ? "dark-window" : ""}`}
+      ref={windowRef}
+      role="dialog"
+      aria-label={title}
+      style={{ zIndex, "--window-offset-x": `${offsetX}px`, "--window-offset-y": `${offsetY}px` } as React.CSSProperties}
+      onPointerDown={onFocus}
+    >
       <div className="titlebar" onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={() => (dragRef.current = null)}>
         <div className="traffic-lights">
           <button className="traffic close" aria-label="Close window" onPointerDown={(e) => e.stopPropagation()} onClick={onClose} />
@@ -225,14 +234,14 @@ function WindowShell({ title, children, onClose, variant = "paper" }: { title: s
   );
 }
 
-function ProjectWindow({ project, onClose }: { project: Project; onClose: () => void }) {
+function ProjectWindow({ project, onClose, ...stackProps }: { project: Project; onClose: () => void } & WindowStackProps) {
   const gallery = useMemo(() => {
     const start = projects.findIndex((item) => item.id === project.id);
     return [...projects.slice(start), ...projects.slice(0, start)].slice(0, 9);
   }, [project]);
 
   return (
-    <WindowShell title={project.title} onClose={onClose}>
+    <WindowShell title={project.title} onClose={onClose} {...stackProps}>
       <article className="project-page">
         <header className="project-hero">
           <div className="project-kicker"><b>{String(projects.findIndex((item) => item.id === project.id) + 1).padStart(2, "0")} — Project</b><span>{project.category}</span></div>
@@ -251,34 +260,34 @@ function ProjectWindow({ project, onClose }: { project: Project; onClose: () => 
   );
 }
 
-function AppWindow({ app, onClose }: { app: AppId; onClose: () => void }) {
+function AppWindow({ app, onClose, ...stackProps }: { app: AppId; onClose: () => void } & WindowStackProps) {
   if (app === "figma") {
     return (
-      <WindowShell title="Figma" onClose={onClose}>
+      <WindowShell title="Figma" onClose={onClose} {...stackProps}>
         <div className="browser-bar"><span>‹</span><span>›</span><div>figma.com/design/D2ePsCUWyaFq2ZRTYHsKzF/Modulify-Showcase</div><button>Share</button></div>
         <iframe className="figma-frame" title="Figma design" src="https://embed.figma.com/design/D2ePsCUWyaFq2ZRTYHsKzF/Modulify-Showcase?node-id=0-1&embed-host=share" allowFullScreen />
       </WindowShell>
     );
   }
   if (app === "claude") {
-    return <WindowShell title="Claude Code" onClose={onClose} variant="dark"><div className="terminal"><p><span>asier@atelier</span> ~ % claude</p><p className="terminal-logo">✳</p><h2>Good afternoon, Asier</h2><p>What are we making today?</p><p className="prompt"><span>›</span> <i>Try “build a portfolio that feels like a place”</i><b /></p><small>Atelier workspace · main</small></div></WindowShell>;
+    return <WindowShell title="Claude Code" onClose={onClose} variant="dark" {...stackProps}><div className="terminal"><p><span>asier@atelier</span> ~ % claude</p><p className="terminal-logo">✳</p><h2>Good afternoon, Asier</h2><p>What are we making today?</p><p className="prompt"><span>›</span> <i>Try “build a portfolio that feels like a place”</i><b /></p><small>Atelier workspace · main</small></div></WindowShell>;
   }
   if (app === "notes") {
-    return <WindowShell title="Notes" onClose={onClose}><div className="notes-app"><aside><b>Notes</b><span>Today</span><p>About Asier</p><span>Yesterday</span><p>Things to make</p><p>People to call</p></aside><article><small>18 July 2026 at 14:08</small><h2>About Asier</h2><p>Independent product and brand designer working across identity, campaigns, digital experiences, and editorial systems.</p><p>I like clear ideas, good images, useful details, and work that earns a second look.</p><h3>Currently</h3><ul><li>Available for selected collaborations</li><li>Based in Zurich</li><li>Always open to a good coffee</li></ul></article></div></WindowShell>;
+    return <WindowShell title="Notes" onClose={onClose} {...stackProps}><div className="notes-app"><aside><b>Notes</b><span>Today</span><p>About Asier</p><span>Yesterday</span><p>Things to make</p><p>People to call</p></aside><article><small>18 July 2026 at 14:08</small><h2>About Asier</h2><p>Independent product and brand designer working across identity, campaigns, digital experiences, and editorial systems.</p><p>I like clear ideas, good images, useful details, and work that earns a second look.</p><h3>Currently</h3><ul><li>Available for selected collaborations</li><li>Based in Zurich</li><li>Always open to a good coffee</li></ul></article></div></WindowShell>;
   }
   if (app === "photos") {
-    return <WindowShell title="Photos" onClose={onClose}><div className="photos-app"><header><h2>Library</h2><span>10 Photos</span></header><div>{projects.map((project) => <img key={project.id} src={project.image} alt={project.title} />)}</div></div></WindowShell>;
+    return <WindowShell title="Photos" onClose={onClose} {...stackProps}><div className="photos-app"><header><h2>Library</h2><span>10 Photos</span></header><div>{projects.map((project) => <img key={project.id} src={project.image} alt={project.title} />)}</div></div></WindowShell>;
   }
   if (app === "x") {
-    return <WindowShell title="X" onClose={onClose}><div className="social-app"><div className="avatar">AB</div><div><h2>Asier <small>@asiermakes</small></h2><p>Independent designer. Images, identities, interfaces—and occasionally a desktop that looks suspiciously like 2007.</p><div className="social-card"><img src="/atelier/projects/bloom-sneaker.jpg" alt="Bloom sneaker campaign" /><p>New work: Bloom, where trail running meets full bloom.</p></div><small>9:42 AM · Jul 18, 2026</small></div></div></WindowShell>;
+    return <WindowShell title="X" onClose={onClose} {...stackProps}><div className="social-app"><div className="avatar">AB</div><div><h2>Asier <small>@asiermakes</small></h2><p>Independent designer. Images, identities, interfaces—and occasionally a desktop that looks suspiciously like 2007.</p><div className="social-card"><img src="/atelier/projects/bloom-sneaker.jpg" alt="Bloom sneaker campaign" /><p>New work: Bloom, where trail running meets full bloom.</p></div><small>9:42 AM · Jul 18, 2026</small></div></div></WindowShell>;
   }
   if (app === "mail") {
-    return <WindowShell title="New Message" onClose={onClose}><form className="mail-app" action="mailto:hello@asier.studio"><label>To: <span>Asier &lt;hello@asier.studio&gt;</span></label><label>Subject: <input aria-label="Subject" placeholder="Project enquiry" /></label><textarea aria-label="Message" placeholder="Hello Asier," /><button type="submit">Send</button></form></WindowShell>;
+    return <WindowShell title="New Message" onClose={onClose} {...stackProps}><form className="mail-app" action="mailto:hello@asier.studio"><label>To: <span>Asier &lt;hello@asier.studio&gt;</span></label><label>Subject: <input aria-label="Subject" placeholder="Project enquiry" /></label><textarea aria-label="Message" placeholder="Hello Asier," /><button type="submit">Send</button></form></WindowShell>;
   }
-  return <WindowShell title="Trash" onClose={onClose}><div className="empty-trash"><img src="/atelier/doc-icons/trash.png" alt="" /><h2>Trash is Empty</h2><p>Nothing to see here. A rare and beautiful state.</p></div></WindowShell>;
+  return <WindowShell title="Trash" onClose={onClose} {...stackProps}><div className="empty-trash"><img src="/atelier/doc-icons/trash.png" alt="" /><h2>Trash is Empty</h2><p>Nothing to see here. A rare and beautiful state.</p></div></WindowShell>;
 }
 
-function FolderWindow({ onClose, onOpenVideo }: { onClose: () => void; onOpenVideo: () => void }) {
+function FolderWindow({ onClose, onOpenVideo, ...stackProps }: { onClose: () => void; onOpenVideo: () => void } & WindowStackProps) {
   const sidebar = [
     { title: "iCloud", items: [{ label: "Recents", icon: "recents" }, { label: "Shared", icon: "shared" }] },
     { title: "Favorites", items: [
@@ -293,7 +302,7 @@ function FolderWindow({ onClose, onOpenVideo }: { onClose: () => void; onOpenVid
     ] },
   ];
 
-  return <WindowShell title="Don't Open" onClose={onClose}>
+  return <WindowShell title="Don't Open" onClose={onClose} {...stackProps}>
     <div className="finder-app">
       <div className="finder-toolbar">
         <div className="finder-arrows"><button aria-label="Back"><span /></button><button aria-label="Forward" disabled><span /></button></div>
@@ -322,8 +331,8 @@ function FolderWindow({ onClose, onOpenVideo }: { onClose: () => void; onOpenVid
   </WindowShell>;
 }
 
-function VideoWindow({ onClose }: { onClose: () => void }) {
-  return <WindowShell title="Dont play this video.mov" onClose={onClose} variant="dark">
+function VideoWindow({ onClose, ...stackProps }: { onClose: () => void } & WindowStackProps) {
+  return <WindowShell title="Dont play this video.mov" onClose={onClose} variant="dark" {...stackProps}>
     <div className="video-app">
       <iframe
         src="https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1&rel=0&modestbranding=1"
@@ -336,23 +345,36 @@ function VideoWindow({ onClose }: { onClose: () => void }) {
 }
 
 export default function Home() {
-  const [activeWindow, setActiveWindow] = useState<WindowState | null>(null);
+  const [openWindows, setOpenWindows] = useState<OpenWindow[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [showMore, setShowMore] = useState(false);
   const [dockHover, setDockHover] = useState<number | null>(null);
+  const nextWindowId = useRef(1);
+
+  const addWindow = (content: WindowState) => {
+    const id = nextWindowId.current++;
+    const cascade = (id - 1) % 6;
+    setOpenWindows((current) => [...current, { id, content, offsetX: cascade * 22, offsetY: cascade * 18 }]);
+  };
+  const closeWindow = (id: number) => {
+    setOpenWindows((current) => current.filter((item) => item.id !== id));
+  };
+  const focusWindow = (id: number) => {
+    setOpenWindows((current) => {
+      const index = current.findIndex((item) => item.id === id);
+      if (index < 0 || index === current.length - 1) return current;
+      return [...current.slice(0, index), ...current.slice(index + 1), current[index]];
+    });
+  };
 
   const openProject = (project: Project) => {
     setSelected(project.id);
-    setActiveWindow({ kind: "project", project });
+    addWindow({ kind: "project", project });
   };
   const openApp = (app: AppId) => {
     setSelected(app);
-    setActiveWindow({ kind: "app", app });
+    addWindow({ kind: "app", app });
     setShowMore(false);
-  };
-  const closeWindow = () => {
-    setActiveWindow(null);
-    setSelected(null);
   };
 
   return (
@@ -367,7 +389,7 @@ export default function Home() {
 
       <div className="desktop-files desktop-only">
         {projects.map((project) => <DesktopIcon key={project.id} project={project} selected={selected === project.id} onOpen={() => openProject(project)} />)}
-        <button className={`desktop-icon folder ${selected === "folder" ? "selected" : ""}`} aria-label="Don't Open" onClick={() => { setSelected("folder"); setActiveWindow({ kind: "folder" }); }}>
+        <button className={`desktop-icon folder ${selected === "folder" ? "selected" : ""}`} aria-label="Don't Open" onClick={() => { setSelected("folder"); addWindow({ kind: "folder" }); }}>
           <img src="/atelier/doc-icons/folder.png" alt="" draggable={false} /><span>Don&apos;t Open</span>
         </button>
       </div>
@@ -390,10 +412,14 @@ export default function Home() {
 
       {showMore && <div className="more-apps"><b>Applications</b>{apps.filter((app) => !["figma", "notes", "mail"].includes(app.id)).map((app) => <button key={app.id} onClick={() => openApp(app.id)}><img src={app.icon} alt="" /><span>{app.name}</span></button>)}</div>}
 
-      {activeWindow?.kind === "project" && <ProjectWindow project={activeWindow.project} onClose={closeWindow} />}
-      {activeWindow?.kind === "app" && <AppWindow app={activeWindow.app} onClose={closeWindow} />}
-      {activeWindow?.kind === "folder" && <FolderWindow onClose={closeWindow} onOpenVideo={() => setActiveWindow({ kind: "video" })} />}
-      {activeWindow?.kind === "video" && <VideoWindow onClose={closeWindow} />}
+      {openWindows.map((window, index) => {
+        const stackProps = { zIndex: 30 + index, offsetX: window.offsetX, offsetY: window.offsetY, onFocus: () => focusWindow(window.id) };
+        const onClose = () => closeWindow(window.id);
+        if (window.content.kind === "project") return <ProjectWindow key={window.id} project={window.content.project} onClose={onClose} {...stackProps} />;
+        if (window.content.kind === "app") return <AppWindow key={window.id} app={window.content.app} onClose={onClose} {...stackProps} />;
+        if (window.content.kind === "folder") return <FolderWindow key={window.id} onClose={onClose} onOpenVideo={() => addWindow({ kind: "video" })} {...stackProps} />;
+        return <VideoWindow key={window.id} onClose={onClose} {...stackProps} />;
+      })}
 
       <div className="portfolio-stamp desktop-only"><span>↘</span><div><small>Independent designer</small><b>Asier</b></div></div>
     </main>
