@@ -3381,6 +3381,7 @@ body {
 }
 .yt-playlist-thumb {
   position: relative;
+  isolation: isolate;
   display: block;
   padding-top: 6px;
 }
