@@ -1,5 +1,22 @@
 @import "tailwindcss";
 
+/* Moving an app card must not invalidate styles throughout its contents. */
+@property --mobile-transform {
+  syntax: "<transform-list>";
+  inherits: false;
+  initial-value: translate(0px, 0px);
+}
+@property --mobile-radius {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --mobile-opacity {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 1;
+}
+
 :root {
   color-scheme: light;
   --glass: rgba(21, 21, 21, 0.66);
@@ -5191,6 +5208,7 @@ body {
   .mobile-switcher-open .window-shell {
     visibility: visible;
     pointer-events: none;
+    will-change: transform;
     box-shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
   }
 
@@ -5266,6 +5284,7 @@ body {
   }
   .app-switcher-label {
     position: absolute;
+    will-change: transform;
     top: 0;
     left: 0;
     height: 30px;
