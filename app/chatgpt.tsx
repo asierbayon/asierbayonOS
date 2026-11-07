@@ -296,7 +296,7 @@ const ChatGPTApp = () => {
         </button>
       </header>
 
-      <main className="min-h-0 flex-1 overflow-y-auto">
+      <main className="min-h-0 flex-1 overflow-y-auto pb-[var(--keyboard-overlap,0px)]">
         {hasConversation ? (
           <div className="mx-auto flex w-full max-w-[680px] flex-col gap-6 px-5 py-6">
             <p className="ml-auto max-w-[80%] rounded-3xl bg-[#f4f4f4] px-4 py-2 break-words whitespace-pre-wrap transition-colors duration-[1400ms] group-data-[theme=matrix]:border group-data-[theme=matrix]:border-[#3dff7a]/30 group-data-[theme=matrix]:bg-[#03140a]">
@@ -335,7 +335,7 @@ const ChatGPTApp = () => {
         )}
       </main>
 
-      <form autoComplete="off" onSubmit={handleSubmit} className="mx-auto w-full max-w-[720px] shrink-0 px-4 pb-2">
+      <form autoComplete="off" onSubmit={handleSubmit} className="relative z-[1] mx-auto w-full max-w-[720px] shrink-0 translate-y-[calc(var(--keyboard-overlap,0px)*-1)] bg-white px-4 pb-2 transition-colors duration-[1400ms] group-data-[theme=matrix]:bg-black">
         <div className="flex items-center gap-2 rounded-[28px] border border-black/10 bg-white py-2 pr-2 pl-5 shadow-[0_4px_16px_rgba(0,0,0,0.06)] transition-colors duration-[1400ms] group-data-[theme=matrix]:border-[#3dff7a]/30 group-data-[theme=matrix]:bg-black group-data-[theme=matrix]:shadow-none">
           <input
             type="text"
