@@ -583,8 +583,8 @@ const ProfileActions = ({
 const ProfileBio = ({ className }: { className: string }) => (
   <div className={`${className} text-sm leading-[18px]`}>
     <p className="font-semibold">Asier Bayón</p>
-    <p className="text-[#a8a8a8]">Digital creator</p>
-    <p>Probably in the mountains</p>
+    <p className="text-[#a8a8a8]">Unprofessional account</p>
+    <p className="mt-2">Probably in the mountains</p>
     <p>Based in Switzerland</p>
   </div>
 );
@@ -660,10 +660,12 @@ export const PostImage = ({
   post,
   onDoubleClick,
   className = "bg-black",
+  fitClassName = "object-contain",
 }: {
   post: Post;
   onDoubleClick?: () => void;
   className?: string;
+  fitClassName?: string;
 }) => {
   const fullImageRef = useRef<HTMLImageElement>(null);
   const [isFullLoaded, setIsFullLoaded] = useState(false);
@@ -683,7 +685,7 @@ export const PostImage = ({
         aria-hidden="true"
         decoding="async"
         draggable={false}
-        className="absolute inset-0 size-full object-contain"
+        className={`${fitClassName} absolute inset-0 size-full`}
       />
       <img
         ref={fullImageRef}
@@ -695,7 +697,7 @@ export const PostImage = ({
         fetchPriority="high"
         draggable={false}
         onLoad={() => setIsFullLoaded(true)}
-        className={`absolute inset-0 size-full object-contain transition-opacity duration-300 ${isFullLoaded ? "opacity-100" : "opacity-0"}`}
+        className={`${fitClassName} absolute inset-0 size-full transition-opacity duration-300 ${isFullLoaded ? "opacity-100" : "opacity-0"}`}
       />
     </div>
   );
@@ -715,13 +717,15 @@ const CommentRow = ({
 
   return (
     <li className="flex items-start gap-3">
-      <UserAvatar handle={comment.user} />
+      <span className="hidden @3xl:block">
+        <UserAvatar handle={comment.user} />
+      </span>
       <div className="min-w-0 flex-1 text-sm leading-[18px]">
         <p className="break-words">
           <span className="mr-1 font-semibold">{comment.user}</span>
           {comment.text}
         </p>
-        <p className="mt-1.5 flex gap-3 text-xs text-[#a8a8a8]">
+        <p className="mt-1.5 hidden gap-3 text-xs text-[#a8a8a8] @3xl:flex">
           <span>{comment.time}</span>
           {likes > 0 && (
             <span className="font-semibold">
@@ -736,7 +740,7 @@ const CommentRow = ({
         aria-label={isLiked ? `Unlike comment by ${comment.user}` : `Like comment by ${comment.user}`}
         aria-pressed={isLiked}
         onClick={onToggleLike}
-        className={`${likeClassName} mt-1 cursor-pointer`}
+        className={`${likeClassName} mt-0.5 cursor-pointer @3xl:mt-1`}
       >
         <Icon name="heart" isFilled={isLiked} className="size-3" />
       </button>
@@ -880,14 +884,34 @@ const PostViewer = ({
         type="button"
         aria-label="Close post"
         onClick={onClose}
-        className="absolute top-2 right-2 z-30 grid size-9 cursor-pointer place-items-center rounded-full bg-black/40 text-white transition hover:bg-black/60 @3xl:top-3 @3xl:right-3 @3xl:bg-transparent"
+        className="absolute top-3 right-3 z-30 hidden size-9 cursor-pointer place-items-center rounded-full text-white transition hover:bg-black/60 @3xl:grid"
       >
         <Icon name="close" className="size-6" />
       </button>
 
-      <article className="flex size-full max-w-[1080px] flex-col overflow-hidden bg-black @3xl:flex-row @3xl:border @3xl:border-[#262626] @3xl:rounded-[4px]">
-        <div className="relative h-[55%] shrink-0 bg-black @3xl:h-auto @3xl:flex-1">
-          <PostImage key={post.id} post={post} onDoubleClick={handleImageDoubleClick} />
+      <article className="flex size-full max-w-[1080px] flex-col overflow-y-auto overscroll-contain bg-black @3xl:flex-row @3xl:overflow-hidden @3xl:rounded-[4px] @3xl:border @3xl:border-[#262626]">
+        <header className="sticky top-0 z-20 grid h-11 shrink-0 grid-cols-[2.75rem_1fr_2.75rem] items-center border-b border-[#262626] bg-black @3xl:hidden">
+          <button
+            type="button"
+            aria-label="Back to profile"
+            onClick={onClose}
+            className="grid size-11 cursor-pointer place-items-center"
+          >
+            <Icon name="chevronLeft" className="size-6" />
+          </button>
+          <div className="text-center leading-tight">
+            <p className="text-[11px] font-semibold tracking-wide text-[#a8a8a8] uppercase">{USERNAME}</p>
+            <h2 className="text-base font-bold">Posts</h2>
+          </div>
+        </header>
+
+        <div className="relative aspect-4/5 w-full shrink-0 bg-black @max-3xl:order-2 @3xl:aspect-auto @3xl:w-auto @3xl:flex-1">
+          <PostImage
+            key={post.id}
+            post={post}
+            onDoubleClick={handleImageDoubleClick}
+            fitClassName="object-cover @3xl:object-contain"
+          />
           <AnimatePresence>
             {burstKey > 0 && (
               <motion.span
@@ -914,8 +938,8 @@ const PostViewer = ({
           )}
         </div>
 
-        <div className="flex min-h-0 flex-1 flex-col @3xl:w-[340px] @3xl:flex-none @3xl:border-l @3xl:border-[#262626]">
-          <header className="flex items-center gap-3 border-b border-[#262626] px-4 py-3">
+        <div className="contents @3xl:flex @3xl:min-h-0 @3xl:w-[340px] @3xl:flex-none @3xl:flex-col @3xl:border-l @3xl:border-[#262626]">
+          <header className="flex items-center gap-3 px-4 py-3 @max-3xl:order-1 @3xl:border-b @3xl:border-[#262626]">
             <UserAvatar handle={USERNAME} className="size-8" />
             <div className="min-w-0 flex-1 text-sm leading-[18px]">
               <p className="font-semibold">{USERNAME}</p>
@@ -924,15 +948,17 @@ const PostViewer = ({
             <Icon name="more" className="size-5" />
           </header>
 
-          <ul className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4">
+          <ul className="space-y-1.5 px-4 pt-1.5 @max-3xl:order-5 @3xl:min-h-0 @3xl:flex-1 @3xl:space-y-4 @3xl:overflow-y-auto @3xl:overscroll-contain @3xl:py-4">
             <li className="flex items-start gap-3">
-              <UserAvatar handle={USERNAME} />
+              <span className="hidden @3xl:block">
+                <UserAvatar handle={USERNAME} />
+              </span>
               <div className="min-w-0 flex-1 text-sm leading-[18px]">
                 <p className="break-words">
                   <span className="mr-1 font-semibold">{USERNAME}</span>
                   {post.caption}
                 </p>
-                <p className="mt-1.5 text-xs text-[#a8a8a8]">{post.date}</p>
+                <p className="mt-1.5 hidden text-xs text-[#a8a8a8] @3xl:block">{post.date}</p>
               </div>
             </li>
             {comments.map((comment, index) => {
@@ -949,8 +975,8 @@ const PostViewer = ({
             <li ref={commentsEndRef} aria-hidden="true" />
           </ul>
 
-          <footer className="border-t border-[#262626]">
-            <div className="flex items-center gap-4 px-4 pt-2.5">
+          <footer className="contents @3xl:block @3xl:border-t @3xl:border-[#262626]">
+            <div className="flex items-center gap-4 px-4 pt-2.5 @max-3xl:order-3">
               <button
                 type="button"
                 aria-label={isLiked ? "Unlike post" : "Like post"}
@@ -976,9 +1002,14 @@ const PostViewer = ({
                 <Icon name="bookmark" isFilled={isSaved} />
               </button>
             </div>
-            <p className="px-4 pt-2 text-sm font-semibold">{formatCount(likes)} likes</p>
-            <p className="px-4 pt-0.5 pb-3 text-[10px] tracking-wide text-[#a8a8a8] uppercase">{post.date}</p>
-            <form onSubmit={handleSubmitComment} className="flex items-center gap-3 border-t border-[#262626] px-4 py-2.5">
+            <p className="px-4 pt-2 text-sm font-semibold @max-3xl:order-4">{formatCount(likes)} likes</p>
+            <p className="px-4 pt-2 pb-3 text-xs text-[#a8a8a8] @max-3xl:order-6 @3xl:pt-0.5 @3xl:text-[10px] @3xl:tracking-wide @3xl:uppercase">
+              {post.date}
+            </p>
+            <form
+              onSubmit={handleSubmitComment}
+              className="flex items-center gap-3 border-t border-[#262626] px-4 py-2.5 @max-3xl:order-7"
+            >
               <input
                 ref={commentInputRef}
                 value={draft}
@@ -996,6 +1027,9 @@ const PostViewer = ({
                 Post
               </button>
             </form>
+            <div className="order-8 @3xl:hidden">
+              <HomeIndicatorSpacer />
+            </div>
           </footer>
         </div>
       </article>
