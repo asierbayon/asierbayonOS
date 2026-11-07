@@ -3579,7 +3579,7 @@ const DesktopControlCenter = ({
   );
 };
 
-const PULL_DISTANCE = 260;
+const PULL_DISTANCE = 220;
 const TAP_SLOP = 8;
 const OPEN_THRESHOLD = 0.3;
 const CLOSE_THRESHOLD = 0.7;
@@ -3589,7 +3589,7 @@ const VELOCITY_WINDOW = 90;
 const SHEET_SPRING = {
   type: "spring" as const,
   stiffness: 340,
-  damping: 20,
+  damping: 32,
   mass: 0.8,
   restDelta: 0.001,
   restSpeed: 0.06,
@@ -3597,6 +3597,10 @@ const SHEET_SPRING = {
 
 type PullSample = { y: number; time: number };
 type PullGesture = {
+  pointerId: number;
+  startX: number;
+  wasOpen: boolean;
+  rejected: boolean;
   startY: number;
   startProgress: number;
   moved: boolean;
@@ -3605,21 +3609,13 @@ type PullGesture = {
 
 const MobileControlCenter = ({ controls }: { controls: ControlCenterState }) => {
   const progress = useMotionValue(0);
-  const settlingClosed = useMotionValue(0);
-  const panelY = useTransform(progress, [0, 1], [-64, 0], { clamp: false });
-  const panelScale = useTransform(progress, [0, 1], [0.92, 1], { clamp: false });
-  const overlayOpacity = useTransform(() => {
-    const value = progress.get();
-    const clamped = Math.min(1, Math.max(0, value));
-    if (settlingClosed.get() !== 1 || value >= 0.25) {
-      return clamped;
-    }
-    const rebound = Math.min(1, Math.max(0, (value + 0.16) / 0.41));
-    return Math.max(clamped, rebound * 0.72);
-  });
+  const panelY = useTransform(progress, [0, 1], [-120, 0]);
+  const panelScale = useTransform(progress, [0, 1], [0.96, 1]);
+  const overlayOpacity = useTransform(progress, [0, 1], [0, 1]);
   const reduceMotion = useReducedMotion();
   const [isVisible, setIsVisible] = useState(false);
   const overlayRef = useRef<HTMLDivElement>(null);
+  const pullHandleRef = useRef<HTMLButtonElement>(null);
   const gestureRef = useRef<PullGesture | null>(null);
   const suppressClickRef = useRef(false);
   const settleGeneration = useRef(0);
@@ -3633,7 +3629,6 @@ const MobileControlCenter = ({ controls }: { controls: ControlCenterState }) => 
 
   const settle = (shouldOpen: boolean, velocity = 0) => {
     const generation = ++settleGeneration.current;
-    settlingClosed.set(shouldOpen ? 0 : 1);
     setIsVisible(true);
     const transition = reduceMotion
       ? { duration: 0 }
@@ -3648,28 +3643,42 @@ const MobileControlCenter = ({ controls }: { controls: ControlCenterState }) => 
           return;
         }
         setIsVisible(false);
+        pullHandleRef.current?.focus({ preventScroll: true });
       },
     });
   };
 
-  const startGesture = (clientY: number) => {
+  const startGesture = (
+    event: React.PointerEvent<HTMLElement>,
+    wasOpen: boolean,
+  ) => {
+    if (!event.isPrimary || event.button !== 0 || gestureRef.current) {
+      return;
+    }
     settleGeneration.current += 1;
-    settlingClosed.set(0);
     progress.stop();
     suppressClickRef.current = false;
     gestureRef.current = {
-      startY: clientY,
-      startProgress: progress.get(),
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      startProgress: Math.max(0, Math.min(1, progress.get())),
+      wasOpen,
+      rejected: false,
       moved: false,
-      samples: [{ y: clientY, time: performance.now() }],
+      samples: [{ y: event.clientY, time: event.timeStamp }],
     };
+    // Keep the opening gesture even when its overlay appears under the finger.
+    // For tiles, defer capture until a drag so taps still reach their buttons.
+    if (!wasOpen) {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    }
   };
 
-  const noteSample = (gesture: PullGesture, clientY: number) => {
-    const now = performance.now();
+  const noteSample = (gesture: PullGesture, clientY: number, now: number) => {
     gesture.samples.push({ y: clientY, time: now });
     const cutoff = now - VELOCITY_WINDOW;
-    while (gesture.samples.length > 2 && gesture.samples[0].time < cutoff) {
+    while (gesture.samples.length > 1 && gesture.samples[0].time < cutoff) {
       gesture.samples.shift();
     }
   };
@@ -3677,40 +3686,29 @@ const MobileControlCenter = ({ controls }: { controls: ControlCenterState }) => 
   const readVelocity = (gesture: PullGesture) => {
     const first = gesture.samples[0];
     const last = gesture.samples[gesture.samples.length - 1];
-    if (!first || !last) {
-      return 0;
-    }
     const elapsed = last.time - first.time;
-    if (elapsed < 12) {
-      return 0;
-    }
-    const pixelsPerSecond = ((last.y - first.y) / elapsed) * 1000;
-    const next = pixelsPerSecond / PULL_DISTANCE;
-    return Math.max(-MAX_FLING, Math.min(MAX_FLING, next));
+    if (elapsed < 12) return 0;
+    const velocity = (((last.y - first.y) / elapsed) * 1000) / PULL_DISTANCE;
+    return Math.max(-MAX_FLING, Math.min(MAX_FLING, velocity));
   };
 
-  const shouldSettleOpen = (value: number, velocity: number, threshold: number) => {
-    if (velocity >= FLICK_SPEED) {
-      return true;
-    }
-    if (velocity <= -FLICK_SPEED) {
-      return false;
-    }
-    return value > threshold;
-  };
-
-  const moveGesture = (clientY: number) => {
+  const moveGesture = (event: React.PointerEvent<HTMLElement>) => {
     const gesture = gestureRef.current;
-    if (!gesture) {
+    if (!gesture || gesture.pointerId !== event.pointerId || gesture.rejected) {
       return;
     }
-    noteSample(gesture, clientY);
-    const delta = clientY - gesture.startY;
-    if (Math.abs(delta) > TAP_SLOP) {
-      gesture.moved = true;
-    }
+    noteSample(gesture, event.clientY, event.timeStamp);
+    const delta = event.clientY - gesture.startY;
+    const deltaX = event.clientX - gesture.startX;
     if (!gesture.moved) {
-      return;
+      if (Math.hypot(deltaX, delta) <= TAP_SLOP) return;
+      // A sideways swipe or an upward swipe on the opener is not a pull.
+      if (Math.abs(deltaX) > Math.abs(delta) || (!gesture.wasOpen && delta < 0)) {
+        gesture.rejected = true;
+        return;
+      }
+      gesture.moved = true;
+      event.currentTarget.setPointerCapture(event.pointerId);
     }
     setIsVisible(true);
     progress.set(
@@ -3718,84 +3716,49 @@ const MobileControlCenter = ({ controls }: { controls: ControlCenterState }) => 
     );
   };
 
-  const finishGesture = () => {
+  const endGesture = (event: React.PointerEvent<HTMLElement>) => {
     const gesture = gestureRef.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+    // Include the release: a flick followed by a pause must not retain momentum.
+    moveGesture(event);
+    noteSample(gesture, event.clientY, event.timeStamp);
     gestureRef.current = null;
-    return gesture;
-  };
-
-  const handlePullStart = (event: React.PointerEvent<HTMLButtonElement>) => {
-    try {
-      event.currentTarget.setPointerCapture(event.pointerId);
-    } catch {
-      // Capture needs an active pointer. Tracking still follows later events.
+    suppressClickRef.current = gesture.moved || gesture.rejected;
+    if (gesture.rejected) {
+      settle(gesture.wasOpen);
+      return;
     }
-    startGesture(event.clientY);
-  };
-
-  const handlePullMove = (event: React.PointerEvent<HTMLButtonElement>) => {
-    moveGesture(event.clientY);
-  };
-
-  const handlePullEnd = () => {
-    const gesture = finishGesture();
-    if (!gesture) {
+    if (!gesture.moved) {
+      const tappedTile = (event.target as Element).closest(".cc-tile");
+      settle(!gesture.wasOpen || Boolean(tappedTile));
       return;
     }
     const velocity = readVelocity(gesture);
-    if (!gesture.moved) {
-      settle(true, 0);
-      return;
-    }
-    settle(
-      shouldSettleOpen(progress.get(), velocity, OPEN_THRESHOLD),
-      velocity,
-    );
+    const threshold = gesture.wasOpen ? CLOSE_THRESHOLD : OPEN_THRESHOLD;
+    const shouldOpen = velocity >= FLICK_SPEED
+      ? true
+      : velocity <= -FLICK_SPEED
+        ? false
+        : progress.get() > threshold;
+    settle(shouldOpen, velocity);
   };
 
-  const handlePullCancel = () => {
-    finishGesture();
-    settle(false);
+  const cancelGesture = (event: React.PointerEvent<HTMLElement>) => {
+    // Moving capture from a tile to the overlay also fires a bubbling lost event.
+    if (
+      event.type === "lostpointercapture" &&
+      event.target !== event.currentTarget
+    ) return;
+    const gesture = gestureRef.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+    gestureRef.current = null;
+    suppressClickRef.current = true;
+    settle(gesture.wasOpen);
   };
 
   const handlePullClick = (event: React.MouseEvent<HTMLButtonElement>) => {
-    if (event.detail !== 0) {
-      return;
-    }
-    settle(true);
-  };
-
-  const handleOverlayPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    startGesture(event.clientY);
-  };
-
-  const handleOverlayPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    moveGesture(event.clientY);
-  };
-
-  const handleOverlayPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
-    const gesture = finishGesture();
-    if (!gesture) {
-      return;
-    }
-    if (gesture.moved) {
-      suppressClickRef.current = true;
-      const velocity = readVelocity(gesture);
-      settle(
-        shouldSettleOpen(progress.get(), velocity, CLOSE_THRESHOLD),
-        velocity,
-      );
-      return;
-    }
-    if ((event.target as Element).closest(".cc-tile")) {
-      return;
-    }
-    settle(false);
-  };
-
-  const handleOverlayPointerCancel = () => {
-    finishGesture();
-    settle(true);
+    // Pointer taps are handled on release; keyboard/assistive clicks arrive here.
+    if (event.detail === 0) settle(true);
   };
 
   const handleOverlayClickCapture = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -3818,14 +3781,16 @@ const MobileControlCenter = ({ controls }: { controls: ControlCenterState }) => 
     <>
       <button
         type="button"
+        ref={pullHandleRef}
         className="cc-pull-handle"
         aria-label="Open Control Center"
         aria-expanded={isVisible}
         aria-haspopup="dialog"
-        onPointerDown={handlePullStart}
-        onPointerMove={handlePullMove}
-        onPointerUp={handlePullEnd}
-        onPointerCancel={handlePullCancel}
+        onPointerDown={(event) => startGesture(event, false)}
+        onPointerMove={moveGesture}
+        onPointerUp={endGesture}
+        onPointerCancel={cancelGesture}
+        onLostPointerCapture={cancelGesture}
         onClick={handlePullClick}
       />
       {isVisible ? (
@@ -3837,10 +3802,11 @@ const MobileControlCenter = ({ controls }: { controls: ControlCenterState }) => 
           aria-label="Control Center"
           tabIndex={-1}
           style={{ opacity: overlayOpacity }}
-          onPointerDown={handleOverlayPointerDown}
-          onPointerMove={handleOverlayPointerMove}
-          onPointerUp={handleOverlayPointerUp}
-          onPointerCancel={handleOverlayPointerCancel}
+          onPointerDown={(event) => startGesture(event, true)}
+          onPointerMove={moveGesture}
+          onPointerUp={endGesture}
+          onPointerCancel={cancelGesture}
+          onLostPointerCapture={cancelGesture}
           onClickCapture={handleOverlayClickCapture}
           onKeyDown={handleOverlayKeyDown}
         >
@@ -3935,6 +3901,14 @@ const MobileControlCenter = ({ controls }: { controls: ControlCenterState }) => 
               </span>
             ))}
           </motion.div>
+          <button
+            type="button"
+            className="cc-dismiss-handle"
+            aria-label="Close Control Center"
+            onClick={() => settle(false)}
+          >
+            <span />
+          </button>
         </motion.div>
       ) : null}
     </>
