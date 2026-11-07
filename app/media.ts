@@ -270,6 +270,49 @@ export type YouTubeSession = {
   next: () => void;
 };
 
+export type AudibleSource = "spotify" | "youtube" | "video";
+
+export type PlaybackGate = {
+  owner: AudibleSource | null;
+  held: Record<AudibleSource, boolean>;
+};
+
+export const createPlaybackGate = (): PlaybackGate => ({
+  owner: null,
+  held: { spotify: false, youtube: false, video: false },
+});
+
+export const claimPlayback = (gate: PlaybackGate, source: AudibleSource) => {
+  gate.owner = source;
+  gate.held.spotify = source !== "spotify";
+  gate.held.youtube = source !== "youtube";
+  gate.held.video = source !== "video";
+};
+
+export const releasePlayback = (gate: PlaybackGate, source: AudibleSource) => {
+  if (gate.owner !== source) return false;
+  gate.owner = null;
+  return true;
+};
+
+export const acknowledgePause = (gate: PlaybackGate, source: AudibleSource) => {
+  gate.held[source] = false;
+};
+
+// A repeated status update must not start a player that lost the session.
+// Only a real state change, or the player that already owns it, may continue.
+export const decidePlayback = (
+  gate: PlaybackGate,
+  source: AudibleSource,
+  fromStateChange: boolean,
+  canTake: boolean,
+): "allow" | "suppress" => {
+  if (!canTake || gate.held[source]) return "suppress";
+  if (gate.owner === source) return "allow";
+  if (!fromStateChange) return "suppress";
+  return "allow";
+};
+
 export const sendPlayerCommand = (
   iframe: HTMLIFrameElement | null,
   func: string,

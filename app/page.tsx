@@ -12,6 +12,7 @@ import {
   useSyncExternalStore,
   type FormEvent,
   type ReactNode,
+  type RefObject,
 } from "react";
 import {
   animate,
@@ -33,6 +34,7 @@ import HomeIndicatorSpacer from "./home-indicator-spacer";
 import WeatherWidget, { useZurichWeather } from "./weather";
 import WeatherApp from "./weather-app";
 import YouTubeApp from "./youtube";
+import { useYouTubeConnection, YouTubeStartupError } from "./use-youtube-connection";
 import ChatGPTApp from "./chatgpt";
 import StartupScreen from "./startup-screen";
 import {
@@ -41,16 +43,22 @@ import {
   YouTubePlaybackOverlay,
 } from "./offline-playback";
 import {
+  acknowledgePause,
   applyPlayerVolume,
-  listenToPlayer,
+  claimPlayback,
+  createPlaybackGate,
+  decidePlayback,
   playlist,
   postPlayerMessage,
   readPlayerMessage,
+  releasePlayback,
   sendPlayerCommand,
   youtubeThumbnail,
   YOUTUBE_ORIGIN,
   YOUTUBE_STATE,
+  type AudibleSource,
   type NowPlayingTrack,
+  type PlaybackGate,
   type YouTubeSession,
 } from "./media";
 
@@ -1941,6 +1949,11 @@ function VideoWindow({
   volume,
   isOffline,
   isPlaybackActive,
+  canTakePlayback,
+  playbackRequest,
+  playbackGateRef,
+  onClaimPlayback,
+  onReleasePlayback,
   onPlayingChange,
   ...stackProps
 }: {
@@ -1948,24 +1961,51 @@ function VideoWindow({
   volume: number;
   isOffline: boolean;
   isPlaybackActive: boolean;
+  canTakePlayback: boolean;
+  playbackRequest: number;
+  playbackGateRef: RefObject<PlaybackGate>;
+  onClaimPlayback: () => void;
+  onReleasePlayback: () => void;
   onPlayingChange: (isPlaying: boolean) => void;
 } & WindowStackProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const volumeRef = useRef(volume);
   const isPlaybackActiveRef = useRef(isPlaybackActive);
+  const canTakePlaybackRef = useRef(canTakePlayback);
   const onPlayingChangeRef = useRef(onPlayingChange);
+  const onClaimRef = useRef(onClaimPlayback);
+  const onReleaseRef = useRef(onReleasePlayback);
   const {
     status: playbackStatus,
     playbackId,
     isStalledRef,
   } = useYouTubeOfflinePlayback(iframeRef, isOffline);
+  const { hasStartupError, retry } = useYouTubeConnection(iframeRef, "desktop-video", () => {
+    applyPlayerVolume(iframeRef.current, volumeRef.current);
+    if (!isPlaybackActiveRef.current || isStalledRef.current) {
+      sendVideoCommand(iframeRef.current, "pauseVideo");
+    }
+  });
+
+  useLayoutEffect(() => {
+    const wasActive = isPlaybackActiveRef.current;
+    if (wasActive && !isPlaybackActive) playbackGateRef.current.held.video = true;
+    if (!wasActive && isPlaybackActive) playbackGateRef.current.held.video = false;
+    isPlaybackActiveRef.current = isPlaybackActive;
+    canTakePlaybackRef.current = canTakePlayback;
+  }, [canTakePlayback, isPlaybackActive, playbackGateRef]);
 
   useEffect(() => {
     onPlayingChangeRef.current = onPlayingChange;
+    onClaimRef.current = onClaimPlayback;
+    onReleaseRef.current = onReleasePlayback;
   });
 
   useEffect(() => {
-    return () => onPlayingChangeRef.current(false);
+    return () => {
+      onPlayingChangeRef.current(false);
+      onReleaseRef.current();
+    };
   }, []);
 
   useEffect(() => {
@@ -1974,25 +2014,35 @@ function VideoWindow({
   }, [volume]);
 
   useEffect(() => {
-    isPlaybackActiveRef.current = isPlaybackActive;
     if (isPlaybackActive) {
       sendVideoCommand(iframeRef.current, "playVideo");
       return;
     }
     sendVideoCommand(iframeRef.current, "pauseVideo");
     onPlayingChangeRef.current(false);
-  }, [isPlaybackActive]);
+  }, [isPlaybackActive, playbackRequest]);
 
   useEffect(() => {
-    const reportState = (state: number) => {
-      if (!isPlaybackActiveRef.current || isStalledRef.current) {
-        if (isPlayingState(state)) {
+    const reportState = (state: number, fromStateChange: boolean) => {
+      const gate = playbackGateRef.current;
+      if (isPlayingState(state)) {
+        const decision = decidePlayback(
+          gate,
+          "video",
+          fromStateChange,
+          canTakePlaybackRef.current && !isStalledRef.current,
+        );
+        if (decision === "suppress") {
           sendVideoCommand(iframeRef.current, "pauseVideo");
+          onPlayingChangeRef.current(false);
+          return;
         }
-        onPlayingChangeRef.current(false);
+        if (gate.owner !== "video") onClaimRef.current();
+        onPlayingChangeRef.current(true);
         return;
       }
-      onPlayingChangeRef.current(isPlayingState(state));
+      if (fromStateChange) acknowledgePause(gate, "video");
+      onPlayingChangeRef.current(false);
     };
 
     const handlePlayerMessage = (event: MessageEvent) => {
@@ -2003,14 +2053,8 @@ function VideoWindow({
       if (!message) {
         return;
       }
-      if (message.event === "onReady" || message.event === "initialDelivery") {
-        applyPlayerVolume(iframeRef.current, volumeRef.current);
-        if (!isPlaybackActiveRef.current || isStalledRef.current) {
-          sendVideoCommand(iframeRef.current, "pauseVideo");
-        }
-      }
       if (message.event === "onStateChange" && typeof message.info === "number") {
-        reportState(message.info);
+        reportState(message.info, true);
         return;
       }
       if (message.event !== "infoDelivery" && message.event !== "initialDelivery") {
@@ -2020,20 +2064,11 @@ function VideoWindow({
       if (typeof playerState !== "number") {
         return;
       }
-      reportState(playerState);
+      reportState(playerState, false);
     };
     window.addEventListener("message", handlePlayerMessage);
     return () => window.removeEventListener("message", handlePlayerMessage);
-  }, [isStalledRef]);
-
-  const handleIframeLoad = () => {
-    listenToPlayer(iframeRef.current, "desktop-video");
-    applyPlayerVolume(iframeRef.current, volumeRef.current);
-    if (isPlaybackActiveRef.current && !isStalledRef.current) {
-      return;
-    }
-    sendVideoCommand(iframeRef.current, "pauseVideo");
-  };
+  }, [isStalledRef, playbackGateRef]);
 
   return (
     <WindowShell
@@ -2049,9 +2084,10 @@ function VideoWindow({
           title={`${VIDEO_ARTIST} — ${VIDEO_TITLE}`}
           allow="autoplay; encrypted-media; picture-in-picture"
           allowFullScreen
-          onLoad={handleIframeLoad}
+          referrerPolicy="strict-origin-when-cross-origin"
         />
         <YouTubePlaybackOverlay status={playbackStatus} playbackId={playbackId} />
+        {hasStartupError && !isOffline ? <YouTubeStartupError onRetry={retry} /> : null}
       </div>
     </WindowShell>
   );
@@ -2181,6 +2217,8 @@ type SpotifyPlayer = {
   isReady: boolean;
   isOffline: boolean;
   hasPlaybackError: boolean;
+  hasStartupError: boolean;
+  retry: () => void;
   isPlaying: boolean;
   trackIndex: number;
   track: NowPlayingTrack;
@@ -2196,16 +2234,21 @@ const useSpotifyPlayer = ({
   volume,
   isOffline,
   isInterrupted,
+  playbackGateRef,
+  onClaimPlayback,
+  onReleasePlayback,
 }: {
   volume: number;
   isOffline: boolean;
   isInterrupted: boolean;
+  playbackGateRef: RefObject<PlaybackGate>;
+  onClaimPlayback: () => void;
+  onReleasePlayback: () => void;
 }): SpotifyPlayer => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const volumeRef = useRef(volume);
   const isReadyRef = useRef(false);
   const wantsPlaybackRef = useRef(false);
-  const resumeAfterInterruptRef = useRef(false);
   const isInterruptedRef = useRef(isInterrupted);
   const awaitingTrackRef = useRef(false);
   const playerStateRef = useRef<number>(YOUTUBE_STATE.unstarted);
@@ -2219,15 +2262,13 @@ const useSpotifyPlayer = ({
   const [isReady, setIsReady] = useState(false);
   const [trackIndex, setTrackIndex] = useState(0);
   const [playerState, setPlayerState] = useState<number>(YOUTUBE_STATE.unstarted);
-  const [wantsPlayback, setWantsPlayback] = useState(false);
 
   const isAudible =
     playerState === YOUTUBE_STATE.playing || playerState === YOUTUBE_STATE.buffering;
-  const isPlaying = isInterrupted ? wantsPlayback && !isOffline : isAudible;
+  const isPlaying = !isInterrupted && isAudible;
 
   const rememberPlayback = (next: boolean) => {
     wantsPlaybackRef.current = next;
-    setWantsPlayback(next);
   };
 
   isInterruptedRef.current = isInterrupted;
@@ -2253,18 +2294,10 @@ const useSpotifyPlayer = ({
   const hasPlaybackError = offlineStatus === "error" && stalledWhilePlaying;
 
   useEffect(() => {
-    if (isInterrupted) {
-      resumeAfterInterruptRef.current = wantsPlaybackRef.current;
-      sendPlayerCommand(iframeRef.current, "pauseVideo");
-      return;
-    }
-    const shouldResume = resumeAfterInterruptRef.current && wantsPlaybackRef.current;
-    resumeAfterInterruptRef.current = false;
-    if (!shouldResume || isOffline) {
-      return;
-    }
-    sendPlayerCommand(iframeRef.current, "playVideo");
-  }, [isInterrupted, isOffline]);
+    if (!isInterrupted) return;
+    rememberPlayback(false);
+    sendPlayerCommand(iframeRef.current, "pauseVideo");
+  }, [isInterrupted]);
 
   useEffect(() => {
     trackIndexRef.current = trackIndex;
@@ -2278,28 +2311,23 @@ const useSpotifyPlayer = ({
     sendPlayerCommand(iframeRef.current, command, [videoId]);
   }, [trackIndex]);
 
+  const { hasStartupError, retry } = useYouTubeConnection(iframeRef, SPOTIFY_PLAYER_ID, () => {
+    if (isReadyRef.current) {
+      return;
+    }
+    isReadyRef.current = true;
+    setIsReady(true);
+    applyPlayerVolume(iframeRef.current, volumeRef.current);
+    const { videoId } = spotifyPlaylist[trackIndexRef.current];
+    if (videoId === loadedVideoIdRef.current && !wantsPlaybackRef.current) {
+      return;
+    }
+    loadedVideoIdRef.current = videoId;
+    const shouldPlay = wantsPlaybackRef.current && !isInterruptedRef.current;
+    sendPlayerCommand(iframeRef.current, shouldPlay ? "loadVideoById" : "cueVideoById", [videoId]);
+  });
+
   useEffect(() => {
-    const cueOrPlay = (videoId: string) => {
-      loadedVideoIdRef.current = videoId;
-      const shouldPlay = wantsPlaybackRef.current && !isInterruptedRef.current;
-      const command = shouldPlay ? "loadVideoById" : "cueVideoById";
-      sendPlayerCommand(iframeRef.current, command, [videoId]);
-    };
-
-    const handlePlayerReady = () => {
-      if (isReadyRef.current) {
-        return;
-      }
-      isReadyRef.current = true;
-      setIsReady(true);
-      applyPlayerVolume(iframeRef.current, volumeRef.current);
-      const { videoId } = spotifyPlaylist[trackIndexRef.current];
-      if (videoId === loadedVideoIdRef.current && !wantsPlaybackRef.current) {
-        return;
-      }
-      cueOrPlay(videoId);
-    };
-
     const rememberProgress = (currentTime: number | null, duration: number | null) => {
       if (currentTime === null && duration === null) {
         return;
@@ -2312,6 +2340,16 @@ const useSpotifyPlayer = ({
     };
 
     const handleStateChange = (state: number, currentTime: number | null) => {
+      const owner = playbackGateRef.current.owner;
+      const blocked = owner !== null && owner !== "spotify";
+      if (blocked && isPlayingState(state)) {
+        rememberPlayback(false);
+        sendPlayerCommand(iframeRef.current, "pauseVideo");
+        if (playerStateRef.current === YOUTUBE_STATE.paused) return;
+        playerStateRef.current = YOUTUBE_STATE.paused;
+        setPlayerState(YOUTUBE_STATE.paused);
+        return;
+      }
       const startedRequestedTrack =
         (state === YOUTUBE_STATE.playing || state === YOUTUBE_STATE.buffering) &&
         currentTime !== null &&
@@ -2343,9 +2381,6 @@ const useSpotifyPlayer = ({
       if (!message) {
         return;
       }
-      if (message.event === "onReady" || message.event === "initialDelivery") {
-        handlePlayerReady();
-      }
       if (message.event === "onStateChange") {
         const state = readFiniteNumber(message.info);
         if (state !== null) {
@@ -2368,25 +2403,22 @@ const useSpotifyPlayer = ({
 
     window.addEventListener("message", handlePlayerMessage);
     return () => window.removeEventListener("message", handlePlayerMessage);
-  }, [progressStore]);
+  }, [playbackGateRef, progressStore]);
 
   const requestPlayback = () => {
     rememberPlayback(true);
   };
 
   const play = () => {
-    if (isOffline || !isReadyRef.current) {
-      return;
-    }
+    if (isOffline || !isReadyRef.current) return;
+    onClaimPlayback();
     requestPlayback();
-    if (isInterruptedRef.current) {
-      return;
-    }
     sendPlayerCommand(iframeRef.current, "playVideo");
   };
 
   const pause = () => {
     rememberPlayback(false);
+    onReleasePlayback();
     sendPlayerCommand(iframeRef.current, "pauseVideo");
   };
 
@@ -2399,9 +2431,8 @@ const useSpotifyPlayer = ({
   };
 
   const showTrack = (index: number) => {
-    if (isOffline || !isReadyRef.current) {
-      return;
-    }
+    if (isOffline || !isReadyRef.current) return;
+    onClaimPlayback();
     requestPlayback();
     awaitingTrackRef.current = true;
     setTrackIndex(wrapTrackIndex(index));
@@ -2434,11 +2465,6 @@ const useSpotifyPlayer = ({
     showTrack(trackIndex + 1);
   };
 
-  const handleFrameLoad = () => {
-    listenToPlayer(iframeRef.current, SPOTIFY_PLAYER_ID);
-    applyPlayerVolume(iframeRef.current, volumeRef.current);
-  };
-
   // Prepare the iframe before interaction so the first mobile tap can send
   // playVideo immediately, without losing user activation while it loads.
   const audioFrame = (
@@ -2450,7 +2476,7 @@ const useSpotifyPlayer = ({
       allow="autoplay; encrypted-media"
       tabIndex={-1}
       aria-hidden="true"
-      onLoad={handleFrameLoad}
+      referrerPolicy="strict-origin-when-cross-origin"
     />
   );
 
@@ -2459,6 +2485,8 @@ const useSpotifyPlayer = ({
     isReady,
     isOffline,
     hasPlaybackError,
+    hasStartupError,
+    retry,
     isPlaying,
     trackIndex,
     track: spotifyPlaylist[trackIndex],
@@ -2653,7 +2681,9 @@ function SpotifyWindow({
             </div>
           </div>
           <div className="spotify-player-status" role="status">
-            {isOffline ? "You're offline" : null}
+            {isOffline ? "You're offline" : player.hasStartupError ? (
+              <span>Music couldn&apos;t connect. <button type="button" onClick={player.retry}>Try again</button></span>
+            ) : !isReady ? "Connecting…" : null}
           </div>
         </footer>
         {player.hasPlaybackError ? (
@@ -2714,7 +2744,7 @@ const SpotifyWidget = ({ player, variant, onOpen }: SpotifyWidgetProps) => {
   const isDisabled = isOffline || !isReady;
   const playLabel = isPlaying ? "Pause" : "Play";
   const playIcon = isPlaying ? "pause" : "play";
-  const subtitle = isOffline ? "You're offline" : track.artist;
+  const subtitle = isOffline ? "You're offline" : player.hasStartupError ? "Music couldn’t connect" : track.artist;
   const statusLabel = `${isPlaying ? "Now playing" : "Paused"}: ${track.title} by ${track.artist}`;
   const handleOpen = () => {
     onOpen?.();
@@ -2748,11 +2778,11 @@ const SpotifyWidget = ({ player, variant, onOpen }: SpotifyWidgetProps) => {
           onPress={player.previous}
         />
         <SpotifyControl
-          label={playLabel}
+          label={player.hasStartupError ? "Retry music connection" : playLabel}
           icon={playIcon}
           className="sp-widget-play"
-          disabled={isDisabled}
-          onPress={player.togglePlay}
+          disabled={isOffline || (!isReady && !player.hasStartupError)}
+          onPress={player.hasStartupError ? player.retry : player.togglePlay}
         />
         <SpotifyControl
           label="Next track"
@@ -4257,17 +4287,17 @@ const PREVIEW_TEXT_SCALE = 0.034;
 const markupTools = [
   { id: "pen", label: "Pen" },
   { id: "highlight", label: "Highlighter" },
-  { id: "shape", label: "Rectangle" },
   { id: "text", label: "Text" },
   { id: "note", label: "Note" },
 ] as const;
 type MarkupTool = (typeof markupTools)[number]["id"];
-type StrokeTool = Extract<MarkupTool, "pen" | "highlight" | "shape">;
+type StrokeTool = Extract<MarkupTool, "pen" | "highlight">;
+type SavedStrokeKind = StrokeTool | "shape";
 type TextTool = Extract<MarkupTool, "text" | "note">;
 type MarkPoint = { x: number; y: number };
 type StrokeMark = {
   id: number;
-  kind: StrokeTool;
+  kind: SavedStrokeKind;
   color: string;
   points: MarkPoint[];
 };
@@ -4332,18 +4362,22 @@ const previewColors = [
   { value: "#111111", label: "Black" },
 ] as const;
 
-const strokeWidths: Record<StrokeTool, number> = {
+const strokeWidths: Record<SavedStrokeKind, number> = {
   pen: 0.005,
   highlight: 0.026,
   shape: 0.005,
 };
 
 const isStrokeTool = (tool: MarkupTool): tool is StrokeTool =>
-  tool === "pen" || tool === "highlight" || tool === "shape";
+  tool === "pen" || tool === "highlight";
 
-const isStrokeMark = (mark: Mark): mark is StrokeMark => isStrokeTool(mark.kind);
+const isSavedStrokeKind = (kind: string): kind is SavedStrokeKind =>
+  kind === "pen" || kind === "highlight" || kind === "shape";
 
-const isTextMark = (mark: Mark): mark is TextMark => !isStrokeTool(mark.kind);
+const isStrokeMark = (mark: Mark): mark is StrokeMark => isSavedStrokeKind(mark.kind);
+
+const isTextMark = (mark: Mark): mark is TextMark =>
+  mark.kind === "text" || mark.kind === "note";
 
 const drawStrokeMark = (
   context: CanvasRenderingContext2D,
@@ -4458,8 +4492,12 @@ const PreviewGlyph = ({ name }: { name: string }) => {
     pen: (
       <path d="M3.2 12.8 4 9.6 11.2 2.4a1 1 0 0 1 1.4 1.4L5.4 11Z" />
     ),
-    highlight: <path d="M3 12.6 8.2 3.2h1.6L13 12.6" />,
-    shape: <rect x="3" y="3.2" width="10" height="9.6" rx="1.2" />,
+    highlight: (
+      <path
+        className="preview-glyph-fill"
+        d="M2.4 10.2 5.2 13h2.2l6.2-6.2-2.8-2.8Z"
+      />
+    ),
     text: (
       <>
         <path d="M3.2 3.4h9.6" />
@@ -4755,10 +4793,6 @@ const PreviewApp = ({ meme, marks, setMarks }: PreviewAppProps) => {
     }
     const point = readSheetPoint(event);
     if (!point) {
-      return;
-    }
-    if (draft.kind === "shape") {
-      setDraft({ ...draft, points: [draft.points[0], point] });
       return;
     }
     setDraft({ ...draft, points: [...draft.points, point] });
@@ -6448,11 +6482,26 @@ export default function Home() {
   const isOffline = !toggles.wifi || toggles.airplane;
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   const [youtubeSession, setYoutubeSession] = useState<YouTubeSession | null>(null);
+  const [videoPlaybackRequest, setVideoPlaybackRequest] = useState(0);
+  const playbackGateRef = useRef<PlaybackGate>(createPlaybackGate());
+  const [audibleSource, setAudibleSource] = useState<AudibleSource | null>(null);
+  const claimAudible = useCallback((source: AudibleSource) => {
+    claimPlayback(playbackGateRef.current, source);
+    setAudibleSource(source);
+  }, []);
+  const releaseAudible = useCallback((source: AudibleSource) => {
+    const released = releasePlayback(playbackGateRef.current, source);
+    if (!released) return;
+    setAudibleSource(null);
+  }, []);
   const isYoutubePlaying = youtubeSession?.isPlaying === true;
   const spotify = useSpotifyPlayer({
     volume,
     isOffline,
-    isInterrupted: isVideoPlaying || isYoutubePlaying,
+    isInterrupted: audibleSource !== null && audibleSource !== "spotify",
+    playbackGateRef,
+    onClaimPlayback: () => claimAudible("spotify"),
+    onReleasePlayback: () => releaseAudible("spotify"),
   });
   const nextWindowId = useRef(1);
   const nextWindowZ = useRef(30);
@@ -6618,6 +6667,8 @@ export default function Home() {
     focusWindow(imageWindow.id);
   };
   const openVideo = () => {
+    claimAudible("video");
+    setVideoPlaybackRequest((current) => current + 1);
     const existing = openWindows.find((item) => item.content.kind === "video");
     if (existing) {
       focusWindow(existing.id);
@@ -6756,13 +6807,15 @@ export default function Home() {
   const isBatteryMenuOpen = openMenuBarPanel === "battery";
 
   const { weather: zurichWeather, status: weatherStatus } = useZurichWeather(isOffline);
-  const isVideoPlaybackActive = (item: OpenWindow) => {
+  const canVideoTakePlayback = (item: OpenWindow) => {
     if (item.content.kind !== "video") return false;
     if (item.minimizedAt !== null) return false;
     if (item.id !== foregroundId) return false;
     if (isSwitcherOpen || isOffline) return false;
     return true;
   };
+  const isVideoPlaybackActive = (item: OpenWindow) =>
+    canVideoTakePlayback(item) && audibleSource === "video";
   const spotifyControls: MusicControls = {
     isPlaying: spotify.isPlaying,
     isDisabled: isOffline || !spotify.isReady,
@@ -7097,6 +7150,10 @@ export default function Home() {
               <YouTubeApp
                 volume={volume}
                 isOffline={isOffline}
+                isSuspended={audibleSource !== null && audibleSource !== "youtube"}
+                playbackGateRef={playbackGateRef}
+                onClaimPlayback={() => claimAudible("youtube")}
+                onReleasePlayback={() => releaseAudible("youtube")}
                 onSessionChange={setYoutubeSession}
               />
             </WindowShell>
@@ -7108,6 +7165,11 @@ export default function Home() {
             volume={volume}
             isOffline={isOffline}
             isPlaybackActive={isVideoPlaybackActive(window)}
+            canTakePlayback={canVideoTakePlayback(window)}
+            playbackRequest={videoPlaybackRequest}
+            playbackGateRef={playbackGateRef}
+            onClaimPlayback={() => claimAudible("video")}
+            onReleasePlayback={() => releaseAudible("video")}
             onPlayingChange={setIsVideoPlaying}
             {...stackProps}
           />

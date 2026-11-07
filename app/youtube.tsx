@@ -11,7 +11,6 @@ import {
 } from "react";
 import {
   applyPlayerVolume,
-  listenToPlayer,
   readPlayerMessage,
   sendPlayerCommand,
   youtubeFeed,
@@ -21,7 +20,10 @@ import {
   youtubeVideos,
   YOUTUBE_ORIGIN,
   YOUTUBE_STATE,
+  acknowledgePause,
+  decidePlayback,
   type NowPlayingTrack,
+  type PlaybackGate,
   type YouTubeFeedItem,
   type YouTubePlaylist,
   type YouTubeSession,
@@ -31,11 +33,16 @@ import {
   useYouTubeOfflinePlayback,
   YouTubePlaybackOverlay,
 } from "./offline-playback";
+import { useYouTubeConnection, YouTubeStartupError } from "./use-youtube-connection";
 import HomeIndicatorSpacer from "./home-indicator-spacer";
 
 type YouTubeAppProps = {
   volume: number;
   isOffline: boolean;
+  isSuspended: boolean;
+  playbackGateRef: RefObject<PlaybackGate>;
+  onClaimPlayback: () => void;
+  onReleasePlayback: () => void;
   onSessionChange: (session: YouTubeSession | null) => void;
 };
 
@@ -300,6 +307,9 @@ type VideoPlayerProps = {
   video: NowPlayingTrack;
   volume: number;
   isOffline: boolean;
+  playbackGateRef: RefObject<PlaybackGate>;
+  onClaimPlayback: () => void;
+  onReleasePlayback: () => void;
   onStateChange: (state: number) => void;
   onEnded: () => void;
 };
@@ -309,20 +319,32 @@ const VideoPlayer = ({
   video,
   volume,
   isOffline,
+  playbackGateRef,
+  onClaimPlayback,
+  onReleasePlayback,
   onStateChange,
   onEnded,
 }: VideoPlayerProps) => {
   const volumeRef = useRef(volume);
+  const sawPlaybackRef = useRef(false);
   const { status, playbackId, isStalledRef } = useYouTubeOfflinePlayback(
     iframeRef,
     isOffline,
   );
   const onStateChangeRef = useRef(onStateChange);
   const onEndedRef = useRef(onEnded);
+  const onClaimRef = useRef(onClaimPlayback);
+  const onReleaseRef = useRef(onReleasePlayback);
+  const { hasStartupError, retry } = useYouTubeConnection(iframeRef, YOUTUBE_PLAYER_ID, () => {
+    applyPlayerVolume(iframeRef.current, volumeRef.current);
+    if (isStalledRef.current) applyPlayerConnection(iframeRef.current, true);
+  });
 
   useEffect(() => {
     onStateChangeRef.current = onStateChange;
     onEndedRef.current = onEnded;
+    onClaimRef.current = onClaimPlayback;
+    onReleaseRef.current = onReleasePlayback;
   });
 
   useEffect(() => {
@@ -331,9 +353,35 @@ const VideoPlayer = ({
   }, [iframeRef, volume]);
 
   useEffect(() => {
-    const handleState = (state: number) => {
+    const handleState = (state: number, fromStateChange: boolean) => {
+      const gate = playbackGateRef.current;
+      if (isActivePlayerState(state)) {
+        const decision = decidePlayback(gate, "youtube", fromStateChange, !isStalledRef.current);
+        if (decision === "suppress") {
+          sendPlayerCommand(iframeRef.current, "pauseVideo");
+          onStateChangeRef.current(YOUTUBE_STATE.paused);
+          return;
+        }
+        sawPlaybackRef.current = true;
+        if (gate.owner !== "youtube") onClaimRef.current();
+        onStateChangeRef.current(state);
+        return;
+      }
+
+      if (fromStateChange) {
+        const shouldRelease =
+          state === YOUTUBE_STATE.paused &&
+          sawPlaybackRef.current &&
+          gate.owner === "youtube" &&
+          !gate.held.youtube;
+        acknowledgePause(gate, "youtube");
+        if (shouldRelease) {
+          sawPlaybackRef.current = false;
+          onReleaseRef.current();
+        }
+      }
       onStateChangeRef.current(state);
-      if (state !== YOUTUBE_STATE.ended) {
+      if (state !== YOUTUBE_STATE.ended || playbackGateRef.current.owner !== "youtube") {
         return;
       }
       onEndedRef.current();
@@ -347,35 +395,23 @@ const VideoPlayer = ({
       if (!message) {
         return;
       }
-      if (message.event === "onReady") {
-        applyPlayerVolume(iframeRef.current, volumeRef.current);
-        if (isStalledRef.current) {
-          applyPlayerConnection(iframeRef.current, true);
-        }
-        return;
-      }
       if (message.event === "onStateChange" && typeof message.info === "number") {
-        handleState(message.info);
+        handleState(message.info, true);
         return;
       }
-      if (message.event !== "infoDelivery") {
+      if (message.event !== "infoDelivery" && message.event !== "initialDelivery") {
         return;
       }
       const { playerState } = (message.info ?? {}) as { playerState?: unknown };
       if (typeof playerState !== "number") {
         return;
       }
-      handleState(playerState);
+      handleState(playerState, false);
     };
 
     window.addEventListener("message", handlePlayerMessage);
     return () => window.removeEventListener("message", handlePlayerMessage);
-  }, [iframeRef, isStalledRef]);
-
-  const handleIframeLoad = () => {
-    listenToPlayer(iframeRef.current, YOUTUBE_PLAYER_ID);
-    applyPlayerVolume(iframeRef.current, volumeRef.current);
-  };
+  }, [iframeRef, isStalledRef, playbackGateRef]);
 
   return (
     <div className={`yt-player ${status}`}>
@@ -385,9 +421,10 @@ const VideoPlayer = ({
         title={`${video.artist} — ${video.title}`}
         allow="autoplay; encrypted-media; picture-in-picture"
         allowFullScreen
-        onLoad={handleIframeLoad}
+        referrerPolicy="strict-origin-when-cross-origin"
       />
       <YouTubePlaybackOverlay status={status} playbackId={playbackId} />
+      {hasStartupError && !isOffline ? <YouTubeStartupError onRetry={retry} /> : null}
     </div>
   );
 };
@@ -395,6 +432,10 @@ const VideoPlayer = ({
 export default function YouTubeApp({
   volume,
   isOffline,
+  isSuspended,
+  playbackGateRef,
+  onClaimPlayback,
+  onReleasePlayback,
   onSessionChange,
 }: YouTubeAppProps) {
   const [watchingId, setWatchingId] = useState<string | null>(null);
@@ -404,6 +445,16 @@ export default function YouTubeApp({
   const mainRef = useRef<HTMLDivElement>(null);
   const playerFrameRef = useRef<HTMLIFrameElement>(null);
   const watchingIdRef = useRef(watchingId);
+  const onClaimRef = useRef(onClaimPlayback);
+  const onReleaseRef = useRef(onReleasePlayback);
+  if (isSuspended && isActivePlayerState(playerState)) {
+    setPlayerState(YOUTUBE_STATE.paused);
+  }
+
+  useEffect(() => {
+    onClaimRef.current = onClaimPlayback;
+    onReleaseRef.current = onReleasePlayback;
+  });
 
   const watchingVideo = youtubeLibrary.find((video) => video.videoId === watchingId) ?? null;
   const isPlaying = isActivePlayerState(playerState);
@@ -414,33 +465,55 @@ export default function YouTubeApp({
   }, [watchingId]);
 
   useEffect(() => {
+    if (!isSuspended) return;
+    sendPlayerCommand(playerFrameRef.current, "pauseVideo");
+  }, [isSuspended]);
+
+  useEffect(() => {
     if (!watchingVideo) {
       onSessionChange(null);
       return;
     }
     const stepVideo = (offset: 1 | -1) => {
+      onClaimRef.current();
       setPlayerState(YOUTUBE_STATE.unstarted);
       setWatchingId(adjacentVideoId(watchingVideo.videoId, offset));
+    };
+    const togglePlay = () => {
+      if (isPlaying) {
+        sendPlayerCommand(playerFrameRef.current, "pauseVideo");
+        onReleaseRef.current();
+        return;
+      }
+      onClaimRef.current();
+      sendPlayerCommand(playerFrameRef.current, "playVideo");
     };
     onSessionChange({
       track: watchingVideo,
       isPlaying,
-      togglePlay: () =>
-        sendPlayerCommand(playerFrameRef.current, isPlaying ? "pauseVideo" : "playVideo"),
+      togglePlay,
       previous: () => stepVideo(-1),
       next: () => stepVideo(1),
     });
   }, [watchingVideo, isPlaying, onSessionChange]);
 
-  useEffect(() => () => onSessionChange(null), [onSessionChange]);
+  useEffect(
+    () => () => {
+      onSessionChange(null);
+      onReleaseRef.current();
+    },
+    [onSessionChange],
+  );
 
   const watchVideo = (videoId: string) => {
+    onClaimRef.current();
     setPlayerState(YOUTUBE_STATE.unstarted);
     setWatchingId(videoId);
     mainRef.current?.scrollTo({ top: 0 });
   };
 
   const goHome = () => {
+    onReleaseRef.current();
     setPlayerState(YOUTUBE_STATE.unstarted);
     setWatchingId(null);
   };
@@ -543,6 +616,9 @@ export default function YouTubeApp({
             video={video}
             volume={volume}
             isOffline={isOffline}
+            playbackGateRef={playbackGateRef}
+            onClaimPlayback={onClaimPlayback}
+            onReleasePlayback={onReleasePlayback}
             onStateChange={setPlayerState}
             onEnded={handleVideoEnded}
           />
