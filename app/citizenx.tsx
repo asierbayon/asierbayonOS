@@ -56,7 +56,7 @@ const CitizenXOverview = () => (
         </section>
 
         <a
-          href="https://citizenx.com/about"
+          href="https://citizenx.com"
           target="_blank"
           rel="noopener noreferrer"
           aria-label="More about CitizenX (opens in a new tab)"
