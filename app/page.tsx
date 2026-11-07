@@ -46,10 +46,12 @@ import {
   playlist,
   postPlayerMessage,
   readPlayerMessage,
+  sendPlayerCommand,
   youtubeThumbnail,
   YOUTUBE_ORIGIN,
   YOUTUBE_STATE,
   type NowPlayingTrack,
+  type YouTubeSession,
 } from "./media";
 
 type Project = {
@@ -84,7 +86,6 @@ const projects: Project[] = [
     title: "SkiCamps.org",
     category: "Directory",
     description: "Directory for ski camps.",
-    url: "https://www.skicamps.org",
     image: "/asier/projects/skicamps.png",
   },
   {
@@ -92,7 +93,6 @@ const projects: Project[] = [
     title: "Virality Masters",
     category: "Platform",
     description: "Content mentorship platform.",
-    url: "https://www.viralitymasters.com",
     image: "/asier/projects/viralitymasters.png",
   },
   {
@@ -101,7 +101,6 @@ const projects: Project[] = [
     category: "Experiment",
     description:
       "Watch your GitHub contributions transform into a bustling metropolis.",
-    url: "https://github-city-82cf.vercel.app",
     image: "/asier/projects/github-city.png",
   },
   {
@@ -109,7 +108,6 @@ const projects: Project[] = [
     title: "Spots Guru",
     category: "Storefront",
     description: "Storefront for travel creators.",
-    url: "https://spotsguru.com",
     image: "/asier/projects/spotsguru.png",
   },
   {
@@ -117,7 +115,6 @@ const projects: Project[] = [
     title: "Memecoins.wtf",
     category: "Directory",
     description: "Memecoin tools directory.",
-    url: "https://memecoins.wtf",
     image: "/asier/projects/memecoins.png",
   },
   {
@@ -2176,14 +2173,6 @@ const useTrackProgress = (store: TrackProgressStore) =>
 
 const wrapTrackIndex = (index: number) =>
   (index + spotifyPlaylist.length) % spotifyPlaylist.length;
-
-const sendPlayerCommand = (
-  iframe: HTMLIFrameElement | null,
-  func: string,
-  args: unknown[] = [],
-) => {
-  postPlayerMessage(iframe, { event: "command", func, args });
-};
 
 type SpotifyPlayer = {
   audioFrame: ReactNode;
@@ -6456,11 +6445,12 @@ export default function Home() {
   const [toggles, setToggles] = useState(initialToggles);
   const isOffline = !toggles.wifi || toggles.airplane;
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
-  const [youtubeTrack, setYoutubeTrack] = useState<NowPlayingTrack | null>(null);
+  const [youtubeSession, setYoutubeSession] = useState<YouTubeSession | null>(null);
+  const isYoutubePlaying = youtubeSession?.isPlaying === true;
   const spotify = useSpotifyPlayer({
     volume,
     isOffline,
-    isInterrupted: isVideoPlaying || youtubeTrack !== null,
+    isInterrupted: isVideoPlaying || isYoutubePlaying,
   });
   const nextWindowId = useRef(1);
   const nextWindowZ = useRef(30);
@@ -6764,7 +6754,6 @@ export default function Home() {
   const isBatteryMenuOpen = openMenuBarPanel === "battery";
 
   const { weather: zurichWeather, status: weatherStatus } = useZurichWeather(isOffline);
-  const videoTrack = isVideoPlaying ? rickrollTrack : youtubeTrack;
   const isVideoPlaybackActive = (item: OpenWindow) => {
     if (item.content.kind !== "video") return false;
     if (item.minimizedAt !== null) return false;
@@ -6772,20 +6761,40 @@ export default function Home() {
     if (isSwitcherOpen || isOffline) return false;
     return true;
   };
-  const musicControls: MusicControls = {
+  const spotifyControls: MusicControls = {
     isPlaying: spotify.isPlaying,
     isDisabled: isOffline || !spotify.isReady,
     onTogglePlay: spotify.togglePlay,
     onPrevious: spotify.previous,
     onNext: spotify.next,
   };
+  const readNowPlaying = (): { track: NowPlayingTrack; music: MusicControls | null } => {
+    if (isVideoPlaying) {
+      return { track: rickrollTrack, music: null };
+    }
+    const showsYoutube = isYoutubePlaying || (youtubeSession !== null && !spotify.isPlaying);
+    if (!youtubeSession || !showsYoutube) {
+      return { track: spotify.track, music: spotifyControls };
+    }
+    return {
+      track: youtubeSession.track,
+      music: {
+        isPlaying: youtubeSession.isPlaying,
+        isDisabled: isOffline,
+        onTogglePlay: youtubeSession.togglePlay,
+        onPrevious: youtubeSession.previous,
+        onNext: youtubeSession.next,
+      },
+    };
+  };
+  const nowPlaying = readNowPlaying();
 
   const controls: ControlCenterState = {
     volume,
     brightness,
     toggles,
-    nowPlaying: videoTrack ?? spotify.track,
-    music: videoTrack ? null : musicControls,
+    nowPlaying: nowPlaying.track,
+    music: nowPlaying.music,
     onVolumeChange: setVolume,
     onBrightnessChange: setBrightness,
     onToggle: handleToggleControl,
@@ -7086,7 +7095,7 @@ export default function Home() {
               <YouTubeApp
                 volume={volume}
                 isOffline={isOffline}
-                onNowPlayingChange={setYoutubeTrack}
+                onSessionChange={setYoutubeSession}
               />
             </WindowShell>
           );

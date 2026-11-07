@@ -7,11 +7,13 @@ import {
   type ChangeEvent,
   type FormEvent,
   type ReactNode,
+  type RefObject,
 } from "react";
 import {
   applyPlayerVolume,
   listenToPlayer,
   readPlayerMessage,
+  sendPlayerCommand,
   youtubeFeed,
   youtubeLibrary,
   youtubePlaylists,
@@ -22,6 +24,7 @@ import {
   type NowPlayingTrack,
   type YouTubeFeedItem,
   type YouTubePlaylist,
+  type YouTubeSession,
 } from "./media";
 import {
   applyPlayerConnection,
@@ -33,7 +36,7 @@ import HomeIndicatorSpacer from "./home-indicator-spacer";
 type YouTubeAppProps = {
   volume: number;
   isOffline: boolean;
-  onNowPlayingChange: (track: NowPlayingTrack | null) => void;
+  onSessionChange: (session: YouTubeSession | null) => void;
 };
 
 type YouTubeIconName = "home" | "subscriptions" | "you" | "search" | "close" | "playlist";
@@ -87,10 +90,11 @@ const findPlaylist = (videoId: string) =>
 
 const videoQueue = (videoId: string) => findPlaylist(videoId)?.videos ?? youtubeVideos;
 
-const nextVideoId = (videoId: string) => {
+const adjacentVideoId = (videoId: string, offset: 1 | -1) => {
   const queue = videoQueue(videoId);
-  const nextIndex = (findVideoIndex(queue, videoId) + 1) % queue.length;
-  return queue[nextIndex].videoId;
+  const adjacentIndex =
+    (findVideoIndex(queue, videoId) + offset + queue.length) % queue.length;
+  return queue[adjacentIndex].videoId;
 };
 
 const videoPlayerSrc = (video: NowPlayingTrack) => {
@@ -292,6 +296,7 @@ const PlaylistPanel = ({ playlist, currentVideoId, onSelect }: PlaylistPanelProp
 };
 
 type VideoPlayerProps = {
+  iframeRef: RefObject<HTMLIFrameElement | null>;
   video: NowPlayingTrack;
   volume: number;
   isOffline: boolean;
@@ -300,13 +305,13 @@ type VideoPlayerProps = {
 };
 
 const VideoPlayer = ({
+  iframeRef,
   video,
   volume,
   isOffline,
   onStateChange,
   onEnded,
 }: VideoPlayerProps) => {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
   const volumeRef = useRef(volume);
   const { status, playbackId, isStalledRef } = useYouTubeOfflinePlayback(
     iframeRef,
@@ -323,7 +328,7 @@ const VideoPlayer = ({
   useEffect(() => {
     volumeRef.current = volume;
     applyPlayerVolume(iframeRef.current, volume);
-  }, [volume]);
+  }, [iframeRef, volume]);
 
   useEffect(() => {
     const handleState = (state: number) => {
@@ -365,7 +370,7 @@ const VideoPlayer = ({
 
     window.addEventListener("message", handlePlayerMessage);
     return () => window.removeEventListener("message", handlePlayerMessage);
-  }, [isStalledRef]);
+  }, [iframeRef, isStalledRef]);
 
   const handleIframeLoad = () => {
     listenToPlayer(iframeRef.current, YOUTUBE_PLAYER_ID);
@@ -390,18 +395,18 @@ const VideoPlayer = ({
 export default function YouTubeApp({
   volume,
   isOffline,
-  onNowPlayingChange,
+  onSessionChange,
 }: YouTubeAppProps) {
   const [watchingId, setWatchingId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [playerState, setPlayerState] = useState<number>(YOUTUBE_STATE.unstarted);
   const [subscribedChannels, setSubscribedChannels] = useState<string[]>([]);
   const mainRef = useRef<HTMLDivElement>(null);
+  const playerFrameRef = useRef<HTMLIFrameElement>(null);
   const watchingIdRef = useRef(watchingId);
 
   const watchingVideo = youtubeLibrary.find((video) => video.videoId === watchingId) ?? null;
   const isPlaying = isActivePlayerState(playerState);
-  const playingVideo = isPlaying ? watchingVideo : null;
   const feedResults = youtubeFeed.filter((item) => matchesFeedItem(item, query));
 
   useEffect(() => {
@@ -409,9 +414,25 @@ export default function YouTubeApp({
   }, [watchingId]);
 
   useEffect(() => {
-    onNowPlayingChange(playingVideo);
-    return () => onNowPlayingChange(null);
-  }, [playingVideo, onNowPlayingChange]);
+    if (!watchingVideo) {
+      onSessionChange(null);
+      return;
+    }
+    const stepVideo = (offset: 1 | -1) => {
+      setPlayerState(YOUTUBE_STATE.unstarted);
+      setWatchingId(adjacentVideoId(watchingVideo.videoId, offset));
+    };
+    onSessionChange({
+      track: watchingVideo,
+      isPlaying,
+      togglePlay: () =>
+        sendPlayerCommand(playerFrameRef.current, isPlaying ? "pauseVideo" : "playVideo"),
+      previous: () => stepVideo(-1),
+      next: () => stepVideo(1),
+    });
+  }, [watchingVideo, isPlaying, onSessionChange]);
+
+  useEffect(() => () => onSessionChange(null), [onSessionChange]);
 
   const watchVideo = (videoId: string) => {
     setPlayerState(YOUTUBE_STATE.unstarted);
@@ -451,7 +472,7 @@ export default function YouTubeApp({
       if (current !== endedId) {
         return current;
       }
-      return nextVideoId(endedId);
+      return adjacentVideoId(endedId, 1);
     });
   };
 
@@ -518,6 +539,7 @@ export default function YouTubeApp({
         <section className="yt-watch-primary" aria-label={video.title}>
           <VideoPlayer
             key={video.videoId}
+            iframeRef={playerFrameRef}
             video={video}
             volume={volume}
             isOffline={isOffline}
