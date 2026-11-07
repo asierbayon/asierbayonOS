@@ -5455,7 +5455,7 @@ const SWITCHER_FOCUS_X = 0.56;
 const SWITCHER_STACK_SPACING = 0.25;
 const SWITCHER_FAR_SPACING = 0.12;
 const SWITCHER_LEAD_SPACING = 0.6;
-const SWITCHER_SCROLL_STEP = 0.6;
+const SWITCHER_SCROLL_STEP = 0.32;
 const SWITCHER_CARD_RADIUS = 30;
 const SWITCHER_LABEL_HEIGHT = 30;
 const SWITCHER_LABEL_GAP = 8;
@@ -5522,12 +5522,14 @@ const frameContains = (
 
 type CardTween = {
   from: Map<number, CardFrame>;
+  scrollIndex: number;
   progress: number;
   controls: AnimationPlaybackControls | null;
 };
 type SwitcherGesture = {
   startX: number;
   startY: number;
+  startLift: number;
   cardId: number | null;
   mode: "pending" | "vertical" | "horizontal";
   samples: PullSample[];
@@ -5602,9 +5604,17 @@ const MobileAppSwitcher = ({
       if (!element) return;
       const resting = readSwitcherFrame(layout.viewport, index - layout.scrollIndex);
       const lift = liftsRef.current.get(card.id) ?? 0;
-      const target = { ...resting, y: resting.y + lift };
       const from = tween?.from.get(card.id);
-      const frame = tween && from ? mixFrames(from, target, tween.progress) : target;
+      const target = tween
+        ? readSwitcherFrame(layout.viewport, index - tween.scrollIndex)
+        : resting;
+      const base = tween && from ? mixFrames(from, target, tween.progress) : target;
+      // Scrolling and swiping stay responsive while the stack enters/reflows.
+      const frame = {
+        ...base,
+        x: base.x + resting.x - target.x,
+        y: base.y + lift,
+      };
       applyCardFrame(element, frame);
       framesRef.current.set(card.id, frame);
     });
@@ -5613,12 +5623,19 @@ const MobileAppSwitcher = ({
 
   const tweenFrom = (from: Map<number, CardFrame>, duration: number) => {
     tweenRef.current?.controls?.stop();
+    const layout = readLayout();
+    if (!layout) return;
     if (duration === 0) {
       tweenRef.current = null;
       renderCards();
       return;
     }
-    const tween: CardTween = { from, progress: 0, controls: null };
+    const tween: CardTween = {
+      from,
+      scrollIndex: layout.scrollIndex,
+      progress: 0,
+      controls: null,
+    };
     tweenRef.current = tween;
     renderCards();
     tween.controls = animate(0, 1, {
@@ -5780,7 +5797,15 @@ const MobileAppSwitcher = ({
   });
 
   const reflowCards = useEffectEvent(() => {
-    tweenFrom(new Map(framesRef.current), SWITCHER_REFLOW_DURATION * motionScale);
+    const from = new Map<number, CardFrame>();
+    cardsRef.current.forEach((card) => {
+      const frame = framesRef.current.get(card.id);
+      if (!frame) return;
+      // Stored frames already include the swipe; only tween the stack position.
+      const lift = liftsRef.current.get(card.id) ?? 0;
+      from.set(card.id, { ...frame, y: frame.y - lift });
+    });
+    tweenFrom(from, SWITCHER_REFLOW_DURATION * motionScale);
   });
 
   const handleResize = useEffectEvent(() => renderCards());
@@ -5826,6 +5851,7 @@ const MobileAppSwitcher = ({
     gestureRef.current = {
       startX: point.x,
       startY: point.y,
+      startLift: 0,
       cardId: findCardAt(point),
       mode: "pending",
       samples: [{ y: point.y, time: event.timeStamp }],
@@ -5847,6 +5873,7 @@ const MobileAppSwitcher = ({
       }
       if (Math.abs(deltaY) <= TAP_SLOP || gesture.cardId === null) return;
       gesture.mode = "vertical";
+      gesture.startLift = liftsRef.current.get(gesture.cardId) ?? 0;
       liftAnimationsRef.current.get(gesture.cardId)?.stop();
       try {
         event.currentTarget.setPointerCapture(event.pointerId);
@@ -5857,7 +5884,8 @@ const MobileAppSwitcher = ({
 
     if (gesture.cardId === null) return;
     recordSample(gesture.samples, event.clientY);
-    const offset = deltaY < 0 ? deltaY : deltaY * SWITCHER_DRAG_RESISTANCE;
+    const delta = deltaY < 0 ? deltaY : deltaY * SWITCHER_DRAG_RESISTANCE;
+    const offset = gesture.startLift + delta;
     liftsRef.current.set(gesture.cardId, offset);
     renderCards();
   };
