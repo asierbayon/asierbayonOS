@@ -4167,12 +4167,12 @@ body {
 
 @media (max-width: 700px) {
   .cc-pull-handle {
-    position: absolute;
-    z-index: 50;
+    position: fixed;
+    z-index: 999;
     top: 0;
     left: 0;
     right: 0;
-    height: 45px;
+    height: max(52px, calc(env(safe-area-inset-top) + 24px));
     display: block;
     padding: 0;
     border: 0;
@@ -4199,6 +4199,30 @@ body {
     backdrop-filter: blur(36px) saturate(165%);
     outline: none;
     user-select: none;
+  }
+  .cc-dismiss-handle {
+    position: absolute;
+    bottom: env(safe-area-inset-bottom, 0px);
+    left: calc(50% - 60px);
+    width: 120px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 16px;
+    background: transparent;
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .cc-dismiss-handle span {
+    width: 48px;
+    height: 5px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.65);
+  }
+  .cc-dismiss-handle:focus-visible {
+    outline: 2px solid white;
+    outline-offset: -4px;
   }
   .cc-mobile-grid {
     --cc-cell: calc((min(100vw - 48px, 360px) - 42px) / 4);
