@@ -573,7 +573,7 @@ const PhotoViewer = ({
       onKeyDown={handleKeyDown}
       className="absolute inset-0 z-10 flex flex-col bg-white pb-[var(--safe-area-bottom,0px)] outline-none"
     >
-      <header className="flex h-[52px] shrink-0 items-center gap-1 border-b border-[#e3e2df] bg-[#f6f5f2] px-2 @2xl:px-3">
+      <header className="flex h-[52px] shrink-0 items-center gap-1 bg-white px-2 @2xl:border-b @2xl:border-[#e3e2df] @2xl:bg-[#f6f5f2] @2xl:px-3">
         <ToolbarButton label="Back to photos" onClick={onClose}>
           <PhotosIcon name="chevronLeft" className="size-5" />
         </ToolbarButton>
