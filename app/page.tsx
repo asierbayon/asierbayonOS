@@ -33,6 +33,7 @@ import HomeIndicatorSpacer from "./home-indicator-spacer";
 import WeatherWidget, { useZurichWeather } from "./weather";
 import WeatherApp from "./weather-app";
 import YouTubeApp from "./youtube";
+import StartupScreen from "./startup-screen";
 import {
   useOfflinePlayback,
   useYouTubeOfflinePlayback,
@@ -6626,6 +6627,7 @@ export default function Home() {
   };
 
   return (
+    <StartupScreen ready={iconPositionsReady && weatherStatus !== "loading"}>
     <main
       className={desktopClassName}
       aria-label="Asier — interactive desktop portfolio"
@@ -6960,5 +6962,6 @@ export default function Home() {
         style={{ opacity: ((100 - brightness) / 100) * MAX_SCREEN_DIM }}
       />
     </main>
+    </StartupScreen>
   );
 }
