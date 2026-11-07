@@ -4667,15 +4667,24 @@ const PreviewApp = ({ meme, marks, setMarks }: PreviewAppProps) => {
       pinch = null;
     };
 
+    const handleWheel = (event: WheelEvent) => {
+      if (!event.ctrlKey) return;
+      event.preventDefault();
+      const nextZoom = zoomRef.current * Math.exp(-event.deltaY * 0.01);
+      zoomTo(nextZoom, readZoomAnchor(area, event.clientX, event.clientY));
+    };
+
     area.addEventListener("touchstart", handleTouchStart, { passive: true });
     area.addEventListener("touchmove", handleTouchMove, { passive: false });
     area.addEventListener("touchend", handleTouchEnd);
     area.addEventListener("touchcancel", handleTouchEnd);
+    area.addEventListener("wheel", handleWheel, { passive: false });
     return () => {
       area.removeEventListener("touchstart", handleTouchStart);
       area.removeEventListener("touchmove", handleTouchMove);
       area.removeEventListener("touchend", handleTouchEnd);
       area.removeEventListener("touchcancel", handleTouchEnd);
+      area.removeEventListener("wheel", handleWheel);
     };
   }, [zoomTo, canvasAreaRef]);
 
@@ -6286,67 +6295,150 @@ type SwitcherSession = { entryId: number | null };
 
 type MenuBarPanelId = "wifi" | "battery" | "controlCenter";
 
-const KEYBOARD_FOLLOW_SELECTOR = "[data-follows-keyboard]";
+const TEXT_ENTRY_TYPES = new Set([
+  "email",
+  "number",
+  "password",
+  "search",
+  "tel",
+  "text",
+  "url",
+]);
 
-const clearKeyboardFollow = (root: HTMLElement) => {
-  delete root.dataset.keyboardFollow;
-  root.style.removeProperty("--visible-top");
-  root.style.removeProperty("--visible-height");
-  root.style.removeProperty("--keyboard-backdrop");
+const isTextField = (
+  target: EventTarget | null,
+): target is HTMLInputElement | HTMLTextAreaElement => {
+  if (target instanceof HTMLTextAreaElement) return true;
+  if (!(target instanceof HTMLInputElement)) return false;
+  return TEXT_ENTRY_TYPES.has(target.type);
 };
 
-const findKeyboardSurface = () => {
-  const focused = document.activeElement;
-  if (!(focused instanceof HTMLElement)) {
-    return null;
-  }
-  return focused.closest<HTMLElement>(KEYBOARD_FOLLOW_SELECTOR);
-};
+const LOCKED_VIEWPORT =
+  "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=overlays-content";
 
-// iOS ignores interactive-widget and pans the page to reveal a bottom field,
-// which uncovers the page background. Surfaces that opt in with
-// data-follows-keyboard get the desktop pinned to the visible area instead.
-const useKeyboardFollow = () => {
+const BROWSER_ZOOM_CODES = new Set([
+  "Equal",
+  "Minus",
+  "Digit0",
+  "NumpadAdd",
+  "NumpadSubtract",
+  "Numpad0",
+]);
+
+// Pinch, trackpad pinch, and the zoom shortcuts scale the whole page and
+// break the fixed desktop. The meme viewer listens for the same gestures
+// itself and zooms the photo instead.
+const usePreventBrowserZoom = () => {
   useEffect(() => {
-    const viewport = window.visualViewport;
-    if (!viewport) {
-      return;
+    const viewportMeta = document.querySelector('meta[name="viewport"]');
+    if (viewportMeta) {
+      viewportMeta.setAttribute("content", LOCKED_VIEWPORT);
     }
-    const root = document.documentElement;
 
-    const syncKeyboardFollow = () => {
-      const isMobile = window.matchMedia(MOBILE_QUERY).matches;
-      const surface = findKeyboardSurface();
-      if (!isMobile || !surface) {
-        clearKeyboardFollow(root);
-        return;
-      }
-      root.dataset.keyboardFollow = "true";
-      root.style.setProperty("--visible-top", `${viewport.offsetTop}px`);
-      root.style.setProperty("--visible-height", `${viewport.height}px`);
-      root.style.setProperty("--keyboard-backdrop", getComputedStyle(surface).backgroundColor);
+    const preventBrowserZoom = (event: Event) => {
+      event.preventDefault();
+    };
+    const handleTouchMove = (event: TouchEvent) => {
+      if (event.touches.length < 2) return;
+      event.preventDefault();
+    };
+    const handleWheel = (event: WheelEvent) => {
+      if (!event.ctrlKey) return;
+      event.preventDefault();
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      if (!BROWSER_ZOOM_CODES.has(event.code)) return;
+      event.preventDefault();
     };
 
-    syncKeyboardFollow();
-    viewport.addEventListener("resize", syncKeyboardFollow);
-    viewport.addEventListener("scroll", syncKeyboardFollow);
-    window.addEventListener("resize", syncKeyboardFollow);
-    document.addEventListener("focusin", syncKeyboardFollow);
-    document.addEventListener("focusout", syncKeyboardFollow);
+    document.addEventListener("gesturestart", preventBrowserZoom, { passive: false });
+    document.addEventListener("gesturechange", preventBrowserZoom, { passive: false });
+    document.addEventListener("gestureend", preventBrowserZoom, { passive: false });
+    document.addEventListener("touchmove", handleTouchMove, { passive: false });
+    document.addEventListener("wheel", handleWheel, { capture: true, passive: false });
+    document.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      viewport.removeEventListener("resize", syncKeyboardFollow);
-      viewport.removeEventListener("scroll", syncKeyboardFollow);
-      window.removeEventListener("resize", syncKeyboardFollow);
-      document.removeEventListener("focusin", syncKeyboardFollow);
-      document.removeEventListener("focusout", syncKeyboardFollow);
-      clearKeyboardFollow(root);
+      document.removeEventListener("gesturestart", preventBrowserZoom);
+      document.removeEventListener("gesturechange", preventBrowserZoom);
+      document.removeEventListener("gestureend", preventBrowserZoom);
+      document.removeEventListener("touchmove", handleTouchMove);
+      document.removeEventListener("wheel", handleWheel, { capture: true });
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+};
+
+const clearTypingViewport = () => {
+  document.documentElement.style.removeProperty("--visible-height");
+  document.querySelector(".desktop")?.removeAttribute("data-keyboard");
+};
+
+// iOS pans the page to keep a bottom field on screen, which uncovers the
+// page background. Focus that field without scrolling and shrink the screen
+// to the area above the keyboard.
+const useTypingViewport = () => {
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+
+    const resetScroll = () => {
+      if (window.scrollX === 0 && window.scrollY === 0) return;
+      window.scrollTo(0, 0);
+    };
+
+    const syncTypingViewport = () => {
+      const desktop = document.querySelector<HTMLElement>(".desktop");
+      const isMobile = window.matchMedia(MOBILE_QUERY).matches;
+      const focused = document.activeElement;
+      const followsKeyboard =
+        isTextField(focused) && Boolean(focused.closest("[data-follows-keyboard]"));
+      if (!desktop || !isMobile || !followsKeyboard) {
+        clearTypingViewport();
+        return;
+      }
+      resetScroll();
+      document.documentElement.style.setProperty(
+        "--visible-height",
+        `${Math.round(viewport.height)}px`,
+      );
+      desktop.dataset.keyboard = "open";
+    };
+
+    const handleTouchEnd = (event: TouchEvent) => {
+      if (!window.matchMedia(MOBILE_QUERY).matches) return;
+      const target = event.target;
+      if (!isTextField(target)) return;
+      if (!target.closest("[data-follows-keyboard]")) return;
+      if (document.activeElement === target) return;
+      event.preventDefault();
+      target.focus({ preventScroll: true });
+    };
+
+    syncTypingViewport();
+    viewport.addEventListener("resize", syncTypingViewport);
+    viewport.addEventListener("scroll", syncTypingViewport);
+    window.addEventListener("resize", syncTypingViewport);
+    document.addEventListener("focusin", syncTypingViewport);
+    document.addEventListener("focusout", syncTypingViewport);
+    document.addEventListener("touchend", handleTouchEnd, { capture: true, passive: false });
+
+    return () => {
+      viewport.removeEventListener("resize", syncTypingViewport);
+      viewport.removeEventListener("scroll", syncTypingViewport);
+      window.removeEventListener("resize", syncTypingViewport);
+      document.removeEventListener("focusin", syncTypingViewport);
+      document.removeEventListener("focusout", syncTypingViewport);
+      document.removeEventListener("touchend", handleTouchEnd, { capture: true });
+      clearTypingViewport();
     };
   }, []);
 };
 
 export default function Home() {
-  useKeyboardFollow();
+  usePreventBrowserZoom();
+  useTypingViewport();
   const [openWindows, setOpenWindows] = useState<OpenWindow[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const desktopFilesRef = useRef<HTMLDivElement>(null);

@@ -30,6 +30,8 @@ body {
   min-height: 100%;
   margin: 0;
   overflow: hidden;
+  /* Pan and scroll stay available. Pinch and double-tap must not scale the page. */
+  touch-action: pan-x pan-y;
 }
 body {
   font-family:
@@ -3549,13 +3551,9 @@ body {
   .desktop {
     background-position: 51% center;
   }
-  /* Set from page.tsx while a keyboard-following field is focused. */
-  html[data-keyboard-follow],
-  html[data-keyboard-follow] body {
-    background: var(--keyboard-backdrop, #24559a);
-  }
-  html[data-keyboard-follow] .desktop {
-    top: var(--visible-top, 0px);
+  /* Set from page.tsx while typing in a field pinned to the bottom. */
+  .desktop[data-keyboard="open"] {
+    top: 0;
     bottom: auto;
     height: var(--visible-height, 100%);
   }
