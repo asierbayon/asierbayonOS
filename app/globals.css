@@ -3696,9 +3696,11 @@ body {
     width: auto;
     height: calc(100dvh - 145px);
   }
-  .preview-app,
+  .preview-app {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
   .preview-app[data-markup="open"] {
-    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto auto minmax(0, 1fr);
   }
   .preview-toolbar,
   .preview-markup {
@@ -3706,11 +3708,8 @@ body {
     padding: 6px 8px;
   }
   .preview-markup {
-    order: 1;
     flex-wrap: wrap;
     row-gap: 4px;
-    border-top: 1px solid #d3d2cf;
-    border-bottom: 0;
   }
   .preview-toolbar button,
   .preview-markup button {
