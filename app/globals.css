@@ -4249,6 +4249,48 @@ body {
     grid-auto-rows: var(--cc-cell);
     gap: 14px;
     transform-origin: top center;
+    --cc-progress: 0;
+  }
+  /* Tiles cascade in reading order, so a slow pull fills the grid row by row. */
+  .cc-mobile-grid > * {
+    --cc-reveal: clamp(
+      0,
+      calc((var(--cc-progress) - var(--cc-order, 0) * 0.07) / 0.65),
+      1
+    );
+    opacity: var(--cc-reveal);
+    translate: 0 calc((1 - var(--cc-reveal)) * -28px);
+    scale: calc(0.8 + 0.2 * var(--cc-reveal));
+  }
+  .cc-mobile-grid > :nth-child(2) {
+    --cc-order: 0.5;
+  }
+  .cc-mobile-grid > :nth-child(3) {
+    --cc-order: 2;
+  }
+  .cc-mobile-grid > :nth-child(4) {
+    --cc-order: 2.25;
+  }
+  .cc-mobile-grid > :nth-child(5) {
+    --cc-order: 2.5;
+  }
+  .cc-mobile-grid > :nth-child(6) {
+    --cc-order: 2.75;
+  }
+  .cc-mobile-grid > :nth-child(7) {
+    --cc-order: 3;
+  }
+  .cc-mobile-grid > :nth-child(8) {
+    --cc-order: 4;
+  }
+  .cc-mobile-grid > :nth-child(9) {
+    --cc-order: 4.25;
+  }
+  .cc-mobile-grid > :nth-child(10) {
+    --cc-order: 4.5;
+  }
+  .cc-mobile-grid > :nth-child(11) {
+    --cc-order: 4.75;
   }
   .cc-mobile-grid .cc-tile {
     position: relative;

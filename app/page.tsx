@@ -22,6 +22,7 @@ import {
   useSpring,
   useTransform,
   type AnimationPlaybackControls,
+  type MotionStyle,
   type MotionValue,
 } from "motion/react";
 import CitizenXOverview from "./citizenx";
@@ -2168,13 +2169,13 @@ const sendPlayerCommand = (
 
 type SpotifyPlayer = {
   audioFrame: ReactNode;
+  isReady: boolean;
   isOffline: boolean;
   hasPlaybackError: boolean;
   isPlaying: boolean;
   trackIndex: number;
   track: NowPlayingTrack;
   progressStore: TrackProgressStore;
-  mount: () => void;
   togglePlay: () => void;
   selectTrack: (index: number) => void;
   previous: () => void;
@@ -2206,7 +2207,7 @@ const useSpotifyPlayer = ({
     progressStoreRef.current = createTrackProgressStore();
   }
   const progressStore = progressStoreRef.current;
-  const [isMounted, setIsMounted] = useState(false);
+  const [isReady, setIsReady] = useState(false);
   const [trackIndex, setTrackIndex] = useState(0);
   const [playerState, setPlayerState] = useState<number>(YOUTUBE_STATE.unstarted);
   const [wantsPlayback, setWantsPlayback] = useState(false);
@@ -2281,6 +2282,7 @@ const useSpotifyPlayer = ({
         return;
       }
       isReadyRef.current = true;
+      setIsReady(true);
       applyPlayerVolume(iframeRef.current, volumeRef.current);
       const { videoId } = spotifyPlaylist[trackIndexRef.current];
       if (videoId === loadedVideoIdRef.current && !wantsPlaybackRef.current) {
@@ -2359,17 +2361,12 @@ const useSpotifyPlayer = ({
     return () => window.removeEventListener("message", handlePlayerMessage);
   }, [progressStore]);
 
-  const mount = () => {
-    setIsMounted(true);
-  };
-
   const requestPlayback = () => {
     rememberPlayback(true);
-    setIsMounted(true);
   };
 
   const play = () => {
-    if (isOffline) {
+    if (isOffline || !isReadyRef.current) {
       return;
     }
     requestPlayback();
@@ -2393,7 +2390,7 @@ const useSpotifyPlayer = ({
   };
 
   const showTrack = (index: number) => {
-    if (isOffline) {
+    if (isOffline || !isReadyRef.current) {
       return;
     }
     requestPlayback();
@@ -2433,7 +2430,9 @@ const useSpotifyPlayer = ({
     applyPlayerVolume(iframeRef.current, volumeRef.current);
   };
 
-  const audioFrame = isMounted ? (
+  // Prepare the iframe before interaction so the first mobile tap can send
+  // playVideo immediately, without losing user activation while it loads.
+  const audioFrame = (
     <iframe
       ref={iframeRef}
       className="spotify-audio-frame"
@@ -2444,17 +2443,17 @@ const useSpotifyPlayer = ({
       aria-hidden="true"
       onLoad={handleFrameLoad}
     />
-  ) : null;
+  );
 
   return {
     audioFrame,
+    isReady,
     isOffline,
     hasPlaybackError,
     isPlaying,
     trackIndex,
     track: spotifyPlaylist[trackIndex],
     progressStore,
-    mount,
     togglePlay,
     selectTrack,
     previous,
@@ -2471,7 +2470,8 @@ function SpotifyWindow({
   onClose: () => void;
   player: SpotifyPlayer;
 } & WindowStackProps) {
-  const { isOffline, isPlaying, trackIndex } = player;
+  const { isOffline, isReady, isPlaying, trackIndex } = player;
+  const isDisabled = isOffline || !isReady;
   const progress = useTrackProgress(player.progressStore);
   const currentTrack = player.track;
 
@@ -2532,7 +2532,7 @@ function SpotifyWindow({
               type="button"
               className="spotify-play-big"
               aria-label={`${playLabel} ${SPOTIFY_PLAYLIST_NAME}`}
-              disabled={isOffline}
+              disabled={isDisabled}
               onClick={player.togglePlay}
             >
               <SpotifyIcon name={playIcon} />
@@ -2562,7 +2562,7 @@ function SpotifyWindow({
                     className={`spotify-track ${isCurrent ? "current" : ""}`}
                     aria-current={isCurrent ? "true" : undefined}
                     aria-label={`${isCurrentPlaying ? "Pause" : "Play"} ${track.title} by ${track.artist}`}
-                    disabled={isOffline}
+                    disabled={isDisabled}
                     onClick={() => player.selectTrack(index)}
                   >
                     <img src={track.cover} alt="" />
@@ -2599,7 +2599,7 @@ function SpotifyWindow({
               <button
                 type="button"
                 aria-label="Previous"
-                disabled={isOffline}
+                disabled={isDisabled}
                 onClick={player.previous}
               >
                 <SpotifyIcon name="previous" />
@@ -2608,7 +2608,7 @@ function SpotifyWindow({
                 type="button"
                 className="spotify-play"
                 aria-label={playLabel}
-                disabled={isOffline}
+                disabled={isDisabled}
                 onClick={player.togglePlay}
               >
                 <SpotifyIcon name={playIcon} />
@@ -2616,7 +2616,7 @@ function SpotifyWindow({
               <button
                 type="button"
                 aria-label="Next"
-                disabled={isOffline}
+                disabled={isDisabled}
                 onClick={player.next}
               >
                 <SpotifyIcon name="next" />
@@ -2632,7 +2632,7 @@ function SpotifyWindow({
                 max={Math.max(progress.duration, 1)}
                 step={1}
                 value={Math.min(progress.currentTime, progress.duration)}
-                disabled={isOffline || progress.duration === 0}
+                disabled={isDisabled || progress.duration === 0}
                 style={
                   {
                     "--spotify-progress": `${progress.duration ? (progress.currentTime / progress.duration) * 100 : 0}%`,
@@ -2644,7 +2644,7 @@ function SpotifyWindow({
             </div>
           </div>
           <div className="spotify-player-status" role="status">
-            {isOffline ? "You're offline" : null}
+            {isOffline ? "You're offline" : !isReady ? "Loading player…" : null}
           </div>
         </footer>
         {player.hasPlaybackError ? (
@@ -2701,10 +2701,11 @@ const SpotifyControl = ({
 };
 
 const SpotifyWidget = ({ player, variant, onOpen }: SpotifyWidgetProps) => {
-  const { isOffline, isPlaying, track } = player;
+  const { isOffline, isReady, isPlaying, track } = player;
+  const isDisabled = isOffline || !isReady;
   const playLabel = isPlaying ? "Pause" : "Play";
   const playIcon = isPlaying ? "pause" : "play";
-  const subtitle = isOffline ? "You're offline" : track.artist;
+  const subtitle = isOffline ? "You're offline" : !isReady ? "Loading player…" : track.artist;
   const statusLabel = `${isPlaying ? "Now playing" : "Paused"}: ${track.title} by ${track.artist}`;
   const handleOpen = () => {
     onOpen?.();
@@ -2734,20 +2735,20 @@ const SpotifyWidget = ({ player, variant, onOpen }: SpotifyWidgetProps) => {
         <SpotifyControl
           label="Previous track"
           icon="previous"
-          disabled={isOffline}
+          disabled={isDisabled}
           onPress={player.previous}
         />
         <SpotifyControl
           label={playLabel}
           icon={playIcon}
           className="sp-widget-play"
-          disabled={isOffline}
+          disabled={isDisabled}
           onPress={player.togglePlay}
         />
         <SpotifyControl
           label="Next track"
           icon="next"
-          disabled={isOffline}
+          disabled={isDisabled}
           onPress={player.next}
         />
       </div>
@@ -3586,32 +3587,92 @@ const CLOSE_THRESHOLD = 0.7;
 const FLICK_SPEED = 1.15;
 const MAX_FLING = 3.2;
 const VELOCITY_WINDOW = 90;
-const SHEET_SPRING = {
+const OVERPULL_LIMIT = 0.14;
+// Touches starting this far down still pull, beyond the strip that captures taps.
+const EDGE_ZONE = 76;
+const MOBILE_QUERY = "(max-width: 700px)";
+// Sideways travel allowed per unit of downward travel before a pull is refused.
+const HANDLE_SLANT = 2;
+const EDGE_SLANT = 1;
+const OPEN_SPRING = {
   type: "spring" as const,
-  stiffness: 340,
-  damping: 32,
+  stiffness: 320,
+  damping: 23,
+  mass: 0.85,
+  restDelta: 0.001,
+  restSpeed: 0.06,
+};
+const CLOSE_SPRING = {
+  type: "spring" as const,
+  stiffness: 380,
+  damping: 38,
   mass: 0.8,
   restDelta: 0.001,
   restSpeed: 0.06,
 };
 
+type PullPoint = { x: number; y: number; time: number };
 type PullSample = { y: number; time: number };
+type PullSource = "pointer" | "touch";
 type PullGesture = {
-  pointerId: number;
+  id: number;
+  source: PullSource;
   startX: number;
-  wasOpen: boolean;
-  rejected: boolean;
   startY: number;
   startProgress: number;
+  slant: number;
+  wasOpen: boolean;
+  rejected: boolean;
   moved: boolean;
   samples: PullSample[];
 };
 
+const resistPull = (rawProgress: number) => {
+  if (rawProgress <= 0) {
+    return 0;
+  }
+  if (rawProgress <= 1) {
+    return rawProgress;
+  }
+  const excess = rawProgress - 1;
+  return 1 + (OVERPULL_LIMIT * excess) / (excess + 0.6);
+};
+
+const readPointerPoint = (event: React.PointerEvent): PullPoint => ({
+  x: event.clientX,
+  y: event.clientY,
+  time: event.timeStamp,
+});
+
+const readTouchPoint = (touch: Touch, time: number): PullPoint => ({
+  x: touch.clientX,
+  y: touch.clientY,
+  time,
+});
+
+const findTouch = (touches: TouchList, id: number) =>
+  Array.from(touches).find((touch) => touch.identifier === id);
+
 const MobileControlCenter = ({ controls }: { controls: ControlCenterState }) => {
   const progress = useMotionValue(0);
-  const panelY = useTransform(progress, [0, 1], [-120, 0]);
-  const panelScale = useTransform(progress, [0, 1], [0.96, 1]);
-  const overlayOpacity = useTransform(progress, [0, 1], [0, 1]);
+  const panelY = useTransform(
+    progress,
+    [0, 1, 1 + OVERPULL_LIMIT],
+    [-96, 0, 22],
+    { clamp: false },
+  );
+  const panelScale = useTransform(
+    progress,
+    [0, 1, 1 + OVERPULL_LIMIT],
+    [0.88, 1, 1.025],
+    { clamp: false },
+  );
+  const overlayOpacity = useTransform(progress, [0, 0.55], [0, 1]);
+  const gridStyle = {
+    y: panelY,
+    scale: panelScale,
+    "--cc-progress": progress,
+  } as MotionStyle;
   const reduceMotion = useReducedMotion();
   const [isVisible, setIsVisible] = useState(false);
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -3632,7 +3693,7 @@ const MobileControlCenter = ({ controls }: { controls: ControlCenterState }) => 
     setIsVisible(true);
     const transition = reduceMotion
       ? { duration: 0 }
-      : { ...SHEET_SPRING, velocity };
+      : { ...(shouldOpen ? OPEN_SPRING : CLOSE_SPRING), velocity };
     animate(progress, shouldOpen ? 1 : 0, {
       ...transition,
       onComplete: () => {
@@ -3648,36 +3709,33 @@ const MobileControlCenter = ({ controls }: { controls: ControlCenterState }) => 
     });
   };
 
-  const startGesture = (
-    event: React.PointerEvent<HTMLElement>,
+  const beginPull = (
+    source: PullSource,
+    id: number,
+    point: PullPoint,
     wasOpen: boolean,
+    slant: number,
   ) => {
-    if (!event.isPrimary || event.button !== 0 || gestureRef.current) {
-      return;
-    }
     settleGeneration.current += 1;
     progress.stop();
     suppressClickRef.current = false;
     gestureRef.current = {
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
+      id,
+      source,
+      startX: point.x,
+      startY: point.y,
       startProgress: Math.max(0, Math.min(1, progress.get())),
+      slant,
       wasOpen,
       rejected: false,
       moved: false,
-      samples: [{ y: event.clientY, time: event.timeStamp }],
+      samples: [{ y: point.y, time: point.time }],
     };
-    // Keep the opening gesture even when its overlay appears under the finger.
-    // For tiles, defer capture until a drag so taps still reach their buttons.
-    if (!wasOpen) {
-      event.currentTarget.setPointerCapture(event.pointerId);
-    }
   };
 
-  const noteSample = (gesture: PullGesture, clientY: number, now: number) => {
-    gesture.samples.push({ y: clientY, time: now });
-    const cutoff = now - VELOCITY_WINDOW;
+  const noteSample = (gesture: PullGesture, point: PullPoint) => {
+    gesture.samples.push({ y: point.y, time: point.time });
+    const cutoff = point.time - VELOCITY_WINDOW;
     while (gesture.samples.length > 1 && gesture.samples[0].time < cutoff) {
       gesture.samples.shift();
     }
@@ -3692,69 +3750,219 @@ const MobileControlCenter = ({ controls }: { controls: ControlCenterState }) => 
     return Math.max(-MAX_FLING, Math.min(MAX_FLING, velocity));
   };
 
-  const moveGesture = (event: React.PointerEvent<HTMLElement>) => {
-    const gesture = gestureRef.current;
-    if (!gesture || gesture.pointerId !== event.pointerId || gesture.rejected) {
+  const isPullDirection = (
+    gesture: PullGesture,
+    deltaX: number,
+    deltaY: number,
+  ) => {
+    if (gesture.wasOpen) {
+      return Math.abs(deltaY) >= Math.abs(deltaX);
+    }
+    return deltaY > 0 && Math.abs(deltaX) <= deltaY * gesture.slant;
+  };
+
+  const trackPull = (gesture: PullGesture, point: PullPoint) => {
+    if (gesture.rejected) {
       return;
     }
-    noteSample(gesture, event.clientY, event.timeStamp);
-    const delta = event.clientY - gesture.startY;
-    const deltaX = event.clientX - gesture.startX;
+    noteSample(gesture, point);
+    const deltaX = point.x - gesture.startX;
+    const deltaY = point.y - gesture.startY;
     if (!gesture.moved) {
-      if (Math.hypot(deltaX, delta) <= TAP_SLOP) return;
-      // A sideways swipe or an upward swipe on the opener is not a pull.
-      if (Math.abs(deltaX) > Math.abs(delta) || (!gesture.wasOpen && delta < 0)) {
+      if (Math.hypot(deltaX, deltaY) <= TAP_SLOP) {
+        return;
+      }
+      if (!isPullDirection(gesture, deltaX, deltaY)) {
         gesture.rejected = true;
         return;
       }
       gesture.moved = true;
-      event.currentTarget.setPointerCapture(event.pointerId);
     }
     setIsVisible(true);
-    progress.set(
-      Math.max(0, Math.min(1, gesture.startProgress + delta / PULL_DISTANCE)),
-    );
+    progress.set(resistPull(gesture.startProgress + deltaY / PULL_DISTANCE));
   };
 
-  const endGesture = (event: React.PointerEvent<HTMLElement>) => {
-    const gesture = gestureRef.current;
-    if (!gesture || gesture.pointerId !== event.pointerId) return;
+  const finishPull = (
+    gesture: PullGesture,
+    point: PullPoint,
+    target: EventTarget | null,
+  ) => {
     // Include the release: a flick followed by a pause must not retain momentum.
-    moveGesture(event);
-    noteSample(gesture, event.clientY, event.timeStamp);
+    trackPull(gesture, point);
     gestureRef.current = null;
     suppressClickRef.current = gesture.moved || gesture.rejected;
     if (gesture.rejected) {
-      settle(gesture.wasOpen);
+      if (gesture.wasOpen) {
+        settle(true);
+      }
       return;
     }
     if (!gesture.moved) {
-      const tappedTile = (event.target as Element).closest(".cc-tile");
+      // Taps near the top edge belong to whatever is under the finger.
+      if (gesture.source === "touch") {
+        return;
+      }
+      const tappedTile = target instanceof Element && target.closest(".cc-tile");
       settle(!gesture.wasOpen || Boolean(tappedTile));
       return;
     }
     const velocity = readVelocity(gesture);
     const threshold = gesture.wasOpen ? CLOSE_THRESHOLD : OPEN_THRESHOLD;
-    const shouldOpen = velocity >= FLICK_SPEED
-      ? true
-      : velocity <= -FLICK_SPEED
-        ? false
-        : progress.get() > threshold;
+    const isFlickDown = velocity >= FLICK_SPEED;
+    const isFlickUp = velocity <= -FLICK_SPEED;
+    const shouldOpen = isFlickDown || (!isFlickUp && progress.get() > threshold);
     settle(shouldOpen, velocity);
   };
 
-  const cancelGesture = (event: React.PointerEvent<HTMLElement>) => {
-    // Moving capture from a tile to the overlay also fires a bubbling lost event.
-    if (
-      event.type === "lostpointercapture" &&
-      event.target !== event.currentTarget
-    ) return;
-    const gesture = gestureRef.current;
-    if (!gesture || gesture.pointerId !== event.pointerId) return;
+  const abortPull = (gesture: PullGesture) => {
     gestureRef.current = null;
     suppressClickRef.current = true;
+    if (!gesture.wasOpen && !gesture.moved) {
+      return;
+    }
     settle(gesture.wasOpen);
   };
+
+  const readPointerGesture = (event: React.PointerEvent) => {
+    const gesture = gestureRef.current;
+    if (
+      !gesture ||
+      gesture.source !== "pointer" ||
+      gesture.id !== event.pointerId
+    ) {
+      return null;
+    }
+    return gesture;
+  };
+
+  const handlePullPointerDown = (
+    event: React.PointerEvent<HTMLElement>,
+    wasOpen: boolean,
+  ) => {
+    if (!event.isPrimary || event.button !== 0 || gestureRef.current) {
+      return;
+    }
+    const slant = wasOpen ? 1 : HANDLE_SLANT;
+    beginPull("pointer", event.pointerId, readPointerPoint(event), wasOpen, slant);
+    // Keep the opening gesture even when its overlay appears under the finger.
+    // For tiles, defer capture until a drag so taps still reach their buttons.
+    if (!wasOpen) {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    }
+  };
+
+  const handlePullPointerMove = (event: React.PointerEvent<HTMLElement>) => {
+    const gesture = readPointerGesture(event);
+    if (!gesture) {
+      return;
+    }
+    const wasMoved = gesture.moved;
+    trackPull(gesture, readPointerPoint(event));
+    if (gesture.moved && !wasMoved) {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    }
+  };
+
+  const handlePullPointerUp = (event: React.PointerEvent<HTMLElement>) => {
+    const gesture = readPointerGesture(event);
+    if (!gesture) {
+      return;
+    }
+    finishPull(gesture, readPointerPoint(event), event.target);
+  };
+
+  const handlePullPointerCancel = (event: React.PointerEvent<HTMLElement>) => {
+    // Moving capture from a tile to the overlay also fires a bubbling lost event.
+    const isBubbledCaptureLoss =
+      event.type === "lostpointercapture" && event.target !== event.currentTarget;
+    if (isBubbledCaptureLoss) {
+      return;
+    }
+    const gesture = readPointerGesture(event);
+    if (!gesture) {
+      return;
+    }
+    abortPull(gesture);
+  };
+
+  const readTouchGesture = (event: TouchEvent) => {
+    const gesture = gestureRef.current;
+    if (!gesture || gesture.source !== "touch") {
+      return null;
+    }
+    const touch = findTouch(event.changedTouches, gesture.id);
+    if (!touch) {
+      return null;
+    }
+    return { gesture, point: readTouchPoint(touch, event.timeStamp) };
+  };
+
+  const handleEdgeTouchStart = useEffectEvent((event: TouchEvent) => {
+    if (isVisible || gestureRef.current || event.touches.length !== 1) {
+      return;
+    }
+    if (!window.matchMedia(MOBILE_QUERY).matches) {
+      return;
+    }
+    const touch = event.changedTouches[0];
+    if (touch.clientY > EDGE_ZONE) {
+      return;
+    }
+    const isOwnSurface =
+      event.target instanceof Element &&
+      event.target.closest(".cc-pull-handle, .cc-mobile-overlay");
+    if (isOwnSurface) {
+      return;
+    }
+    const point = readTouchPoint(touch, event.timeStamp);
+    beginPull("touch", touch.identifier, point, false, EDGE_SLANT);
+  });
+
+  const handleEdgeTouchMove = useEffectEvent((event: TouchEvent) => {
+    const active = readTouchGesture(event);
+    if (!active) {
+      return;
+    }
+    const { gesture, point } = active;
+    trackPull(gesture, point);
+    if (gesture.rejected) {
+      gestureRef.current = null;
+      return;
+    }
+    // Claim the touch before the page starts scrolling, which iOS won't undo.
+    const isHeadingDown = point.y > gesture.startY;
+    if (event.cancelable && (gesture.moved || isHeadingDown)) {
+      event.preventDefault();
+    }
+  });
+
+  const handleEdgeTouchEnd = useEffectEvent((event: TouchEvent) => {
+    const active = readTouchGesture(event);
+    if (!active) {
+      return;
+    }
+    if (event.type === "touchcancel") {
+      abortPull(active.gesture);
+      return;
+    }
+    finishPull(active.gesture, active.point, event.target);
+  });
+
+  useEffect(() => {
+    const listenForTouchStart = (event: TouchEvent) => handleEdgeTouchStart(event);
+    const listenForTouchMove = (event: TouchEvent) => handleEdgeTouchMove(event);
+    const listenForTouchEnd = (event: TouchEvent) => handleEdgeTouchEnd(event);
+    window.addEventListener("touchstart", listenForTouchStart, { passive: true });
+    window.addEventListener("touchmove", listenForTouchMove, { passive: false });
+    window.addEventListener("touchend", listenForTouchEnd);
+    window.addEventListener("touchcancel", listenForTouchEnd);
+    return () => {
+      window.removeEventListener("touchstart", listenForTouchStart);
+      window.removeEventListener("touchmove", listenForTouchMove);
+      window.removeEventListener("touchend", listenForTouchEnd);
+      window.removeEventListener("touchcancel", listenForTouchEnd);
+    };
+  }, []);
 
   const handlePullClick = (event: React.MouseEvent<HTMLButtonElement>) => {
     // Pointer taps are handled on release; keyboard/assistive clicks arrive here.
@@ -3786,11 +3994,11 @@ const MobileControlCenter = ({ controls }: { controls: ControlCenterState }) => 
         aria-label="Open Control Center"
         aria-expanded={isVisible}
         aria-haspopup="dialog"
-        onPointerDown={(event) => startGesture(event, false)}
-        onPointerMove={moveGesture}
-        onPointerUp={endGesture}
-        onPointerCancel={cancelGesture}
-        onLostPointerCapture={cancelGesture}
+        onPointerDown={(event) => handlePullPointerDown(event, false)}
+        onPointerMove={handlePullPointerMove}
+        onPointerUp={handlePullPointerUp}
+        onPointerCancel={handlePullPointerCancel}
+        onLostPointerCapture={handlePullPointerCancel}
         onClick={handlePullClick}
       />
       {isVisible ? (
@@ -3802,17 +4010,17 @@ const MobileControlCenter = ({ controls }: { controls: ControlCenterState }) => 
           aria-label="Control Center"
           tabIndex={-1}
           style={{ opacity: overlayOpacity }}
-          onPointerDown={(event) => startGesture(event, true)}
-          onPointerMove={moveGesture}
-          onPointerUp={endGesture}
-          onPointerCancel={cancelGesture}
-          onLostPointerCapture={cancelGesture}
+          onPointerDown={(event) => handlePullPointerDown(event, true)}
+          onPointerMove={handlePullPointerMove}
+          onPointerUp={handlePullPointerUp}
+          onPointerCancel={handlePullPointerCancel}
+          onLostPointerCapture={handlePullPointerCancel}
           onClickCapture={handleOverlayClickCapture}
           onKeyDown={handleOverlayKeyDown}
         >
           <motion.div
             className="cc-mobile-grid"
-            style={{ y: panelY, scale: panelScale }}
+            style={gridStyle}
           >
             <section className="cc-tile cc-connect-grid" aria-label="Connectivity">
               {mobileConnectivity.map((item) => (
@@ -6286,7 +6494,6 @@ export default function Home() {
       (item) => item.content.kind === "spotify",
     );
     if (!spotifyWindow) {
-      spotify.mount();
       addWindow({ kind: "spotify" });
       return;
     }
@@ -6335,9 +6542,6 @@ export default function Home() {
     setSelected(app.id);
     const existing = findAppWindow(app.id);
     if (existing) {
-      if (app.id === "spotify") {
-        spotify.mount();
-      }
       focusWindow(existing.id);
       return;
     }
@@ -6404,7 +6608,7 @@ export default function Home() {
   };
   const musicControls: MusicControls = {
     isPlaying: spotify.isPlaying,
-    isDisabled: isOffline,
+    isDisabled: isOffline || !spotify.isReady,
     onTogglePlay: spotify.togglePlay,
     onPrevious: spotify.previous,
     onNext: spotify.next,
