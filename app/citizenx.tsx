@@ -50,7 +50,7 @@ const CitizenXOverview = () => (
             What I do.
           </h3>
           <p className={bodyClassName}>
-            I&apos;m Chief of Product at CitizenX. I bring product, design, and engineering together to make a complex
+            I&apos;m Chief Product Officer at CitizenX. I bring product, design, and engineering together to make a complex
             citizenship journey feel clear and approachable, from the first eligibility check to a new passport.
           </p>
         </section>

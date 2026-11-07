@@ -100,9 +100,6 @@ const videoPlayerSrc = (video: NowPlayingTrack) => {
     playsinline: "1",
     enablejsapi: "1",
   });
-  if (video.start) {
-    params.set("start", String(video.start));
-  }
   return `${YOUTUBE_ORIGIN}/embed/${video.videoId}?${params.toString()}`;
 };
 

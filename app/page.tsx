@@ -1095,7 +1095,7 @@ const noteFolders: NoteFolder[] = [
         title: "About Asier",
         meta: "18 July 2026",
         paragraphs: [
-          "Chief of Product at CitizenX.",
+          "Chief Product Officer at CitizenX.",
           "Mountain and cow photographer during the summer, powder skiing enthusiast during winter, and building stuff on the Internet all year round.",
           "I'm driven by discovering market gaps, and crafting visual beauty.",
         ],
@@ -6286,7 +6286,46 @@ type SwitcherSession = { entryId: number | null };
 
 type MenuBarPanelId = "wifi" | "battery" | "controlCenter";
 
+// The keyboard accessory bar makes iOS scroll the document, which uncovers the
+// page background. Hold the document still. ChatGPT's composer is the field
+// pinned to the bottom, so it lifts by the overlap instead of moving the page.
+const useKeyboardInset = () => {
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) {
+      return;
+    }
+
+    const syncKeyboardInset = () => {
+      const isMobile = window.matchMedia(MOBILE_QUERY).matches;
+      if (!isMobile) {
+        document.documentElement.style.removeProperty("--keyboard-overlap");
+        return;
+      }
+
+      const overlap = Math.max(0, Math.round(window.innerHeight - viewport.height));
+      document.documentElement.style.setProperty("--keyboard-overlap", `${overlap}px`);
+      if (window.scrollX !== 0 || window.scrollY !== 0) {
+        window.scrollTo(0, 0);
+      }
+    };
+
+    syncKeyboardInset();
+    viewport.addEventListener("resize", syncKeyboardInset);
+    viewport.addEventListener("scroll", syncKeyboardInset);
+    window.addEventListener("resize", syncKeyboardInset);
+
+    return () => {
+      viewport.removeEventListener("resize", syncKeyboardInset);
+      viewport.removeEventListener("scroll", syncKeyboardInset);
+      window.removeEventListener("resize", syncKeyboardInset);
+      document.documentElement.style.removeProperty("--keyboard-overlap");
+    };
+  }, []);
+};
+
 export default function Home() {
+  useKeyboardInset();
   const [openWindows, setOpenWindows] = useState<OpenWindow[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const desktopFilesRef = useRef<HTMLDivElement>(null);
