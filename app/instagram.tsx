@@ -503,6 +503,11 @@ export const fullSrc = (postId: string) => `/asier/instagram/${postId}.webp`;
 export const thumbHeight = (post: Post) =>
   Math.round((THUMB_WIDTH * post.height) / post.width);
 export const formatCount = (value: number) => value.toLocaleString("en-US");
+const shareCount = (post: Post) => Math.round(post.likes / 24);
+
+const ActionCount = ({ value }: { value: number }) => (
+  <span className="text-sm font-semibold @3xl:hidden">{formatCount(value)}</span>
+);
 
 const preloadedSources = new Set<string>();
 export const preloadImage = (src: string) => {
@@ -582,7 +587,6 @@ const ProfileActions = ({
 
 const ProfileBio = ({ className }: { className: string }) => (
   <div className={`${className} text-sm leading-[18px]`}>
-    <p className="font-semibold">Asier Bayón</p>
     <p className="text-[#a8a8a8]">Unprofessional account</p>
     <p className="mt-2">Probably in the mountains</p>
     <p>Based in Switzerland</p>
@@ -752,6 +756,7 @@ type PostViewerProps = {
   post: Post;
   position: number;
   comments: PostComment[];
+  commentCount: number;
   isLiked: boolean;
   isSaved: boolean;
   likedCommentKeys: Set<string>;
@@ -769,6 +774,7 @@ const PostViewer = ({
   post,
   position,
   comments,
+  commentCount,
   isLiked,
   isSaved,
   likedCommentKeys,
@@ -948,7 +954,7 @@ const PostViewer = ({
             <Icon name="more" className="size-5" />
           </header>
 
-          <ul className="space-y-1.5 px-4 pt-1.5 @max-3xl:order-5 @3xl:min-h-0 @3xl:flex-1 @3xl:space-y-4 @3xl:overflow-y-auto @3xl:overscroll-contain @3xl:py-4">
+          <ul className="space-y-1.5 px-4 pt-2.5 @max-3xl:order-5 @3xl:min-h-0 @3xl:flex-1 @3xl:space-y-4 @3xl:overflow-y-auto @3xl:overscroll-contain @3xl:py-4">
             <li className="flex items-start gap-3">
               <span className="hidden @3xl:block">
                 <UserAvatar handle={USERNAME} />
@@ -982,15 +988,28 @@ const PostViewer = ({
                 aria-label={isLiked ? "Unlike post" : "Like post"}
                 aria-pressed={isLiked}
                 onClick={onToggleLike}
-                className={`${likeClassName} cursor-pointer transition-transform active:scale-90`}
+                className="flex cursor-pointer items-center gap-1.5 transition-transform active:scale-90"
               >
-                <Icon name="heart" isFilled={isLiked} />
+                <Icon name="heart" isFilled={isLiked} className={`${likeClassName} size-6`} />
+                <ActionCount value={likes} />
               </button>
-              <button type="button" aria-label="Comment on post" onClick={handleFocusComment} className="cursor-pointer hover:text-[#a8a8a8]">
+              <button
+                type="button"
+                aria-label="Comment on post"
+                onClick={handleFocusComment}
+                className="flex cursor-pointer items-center gap-1.5 hover:text-[#a8a8a8]"
+              >
                 <Icon name="comment" />
+                <ActionCount value={commentCount} />
               </button>
-              <button type="button" aria-label="Copy profile link" onClick={handleShare} className="cursor-pointer hover:text-[#a8a8a8]">
+              <button
+                type="button"
+                aria-label="Copy profile link"
+                onClick={handleShare}
+                className="flex cursor-pointer items-center gap-1.5 hover:text-[#a8a8a8]"
+              >
                 <Icon name="share" />
+                <ActionCount value={shareCount(post)} />
               </button>
               <button
                 type="button"
@@ -1002,7 +1021,7 @@ const PostViewer = ({
                 <Icon name="bookmark" isFilled={isSaved} />
               </button>
             </div>
-            <p className="px-4 pt-2 text-sm font-semibold @max-3xl:order-4">{formatCount(likes)} likes</p>
+            <p className="px-4 pt-2 text-sm font-semibold @max-3xl:hidden">{formatCount(likes)} likes</p>
             <p className="px-4 pt-2 pb-3 text-xs text-[#a8a8a8] @max-3xl:order-6 @3xl:pt-0.5 @3xl:text-[10px] @3xl:tracking-wide @3xl:uppercase">
               {post.date}
             </p>
@@ -1063,6 +1082,8 @@ export default function InstagramProfile() {
     ...baseComments,
     ...(addedComments[postId] ?? []),
   ];
+  const commentCountFor = (post: Post) =>
+    post.commentCount + (addedComments[post.id]?.length ?? 0);
 
   const handleOpenPost = (postId: string) => {
     setOpenPostId(postId);
@@ -1114,7 +1135,8 @@ export default function InstagramProfile() {
                 <h2 className="hidden text-xl leading-6 font-normal min-[701px]:block">{USERNAME}</h2>
                 <ProfileActions isFollowing={isFollowing} onToggleFollow={handleToggleFollow} className="hidden @2xl:flex" />
               </div>
-              <ProfileStats className="mt-3 flex gap-5 @2xl:mt-5 @2xl:gap-10 @2xl:text-base" />
+              <p className="text-sm leading-[18px] font-semibold @2xl:mt-4 @2xl:text-base">Asier Bayón</p>
+              <ProfileStats className="mt-2 flex gap-5 @2xl:mt-3 @2xl:gap-10 @2xl:text-base" />
               <ProfileBio className="mt-5 hidden @2xl:block" />
             </div>
           </header>
@@ -1133,9 +1155,9 @@ export default function InstagramProfile() {
                   aria-selected={isActive}
                   aria-label={tab.label}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`${tabClassName} -mt-px flex h-[52px] cursor-pointer items-center gap-1.5 border-t text-xs font-semibold tracking-[0.1em] uppercase`}
+                  className={`${tabClassName} -mt-px flex h-14 cursor-pointer items-center gap-2 border-t text-sm font-semibold tracking-[0.1em] uppercase`}
                 >
-                  <Icon name={tab.icon} className="size-3" />
+                  <Icon name={tab.icon} className="size-6 @md:size-4" />
                   <span className="hidden @md:inline">{tab.label}</span>
                 </button>
               );
@@ -1149,7 +1171,7 @@ export default function InstagramProfile() {
                   key={post.id}
                   post={post}
                   likes={post.likes + Number(likedPostIds.has(post.id))}
-                  commentCount={post.commentCount + (addedComments[post.id]?.length ?? 0)}
+                  commentCount={commentCountFor(post)}
                   onOpen={handleOpenPost}
                 />
               ))}
@@ -1177,6 +1199,7 @@ export default function InstagramProfile() {
           post={openPost}
           position={openPostIndex}
           comments={commentsFor(openPost.id, openPost.comments)}
+          commentCount={commentCountFor(openPost)}
           isLiked={likedPostIds.has(openPost.id)}
           isSaved={savedPostIds.has(openPost.id)}
           likedCommentKeys={likedCommentKeys}
