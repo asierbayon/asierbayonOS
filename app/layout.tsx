@@ -18,7 +18,7 @@ const ogImage = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://asierbayon2.vercel.app"),
+  metadataBase: new URL("https://www.asierbayon.com"),
   title,
   description,
   icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
