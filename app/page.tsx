@@ -33,6 +33,7 @@ import HomeIndicatorSpacer from "./home-indicator-spacer";
 import WeatherWidget, { useZurichWeather } from "./weather";
 import WeatherApp from "./weather-app";
 import YouTubeApp from "./youtube";
+import ChatGPTApp from "./chatgpt";
 import StartupScreen from "./startup-screen";
 import {
   useOfflinePlayback,
@@ -207,6 +208,7 @@ const apps = [
   { id: "weather", name: "Weather", icon: "/asier/doc-icons/weather.svg" },
   { id: "spotify", name: "Spotify", icon: "/asier/doc-icons/spotify.svg" },
   { id: "youtube", name: "YouTube", icon: "/asier/doc-icons/youtube.svg" },
+  { id: "chatgpt", name: "ChatGPT", icon: "/asier/doc-icons/chatgpt.svg" },
   {
     id: "x",
     name: "X",
@@ -505,8 +507,10 @@ const IOS_EASE: [number, number, number, number] = [0.32, 0.72, 0, 1];
 const LAUNCH_DURATION = 0.5;
 const GO_HOME_DURATION = 0.42;
 const SPRING_BACK_DURATION = 0.34;
+const CORNER_SETTLE_DURATION = 0.12;
 const LAUNCHER_FALLBACK_SIZE = 60;
 const ICON_CORNER_RATIO = 0.23;
+const APP_CARD_RADIUS = 36;
 
 const appliedFrames = new WeakMap<HTMLElement, CardFrame>();
 const frameAnimations = new WeakMap<HTMLElement, AnimationPlaybackControls>();
@@ -633,8 +637,13 @@ const launchMobileWindow = (
     ? readIconFrame(viewport, pointer, LAUNCHER_FALLBACK_SIZE)
     : readScreenCenterFrame(viewport);
   const origin = readLauncherFrame(viewport, launcherKey) ?? pointerFrame;
+  const roundedFullFrame = { ...FULL_FRAME, radius: APP_CARD_RADIUS };
+  const settleCorners = () => {
+    const settleDuration = duration === 0 ? 0 : CORNER_SETTLE_DURATION;
+    animateFrame(element, FULL_FRAME, settleDuration, () => clearCardFrame(element));
+  };
   applyCardFrame(element, origin);
-  animateFrame(element, FULL_FRAME, duration, () => clearCardFrame(element));
+  animateFrame(element, roundedFullFrame, duration, settleCorners);
 };
 
 const useGenie = (
@@ -1301,6 +1310,7 @@ const ICON_PLATE: Record<AppId, number> = {
   weather: 1,
   spotify: 1,
   youtube: 1,
+  chatgpt: 1,
   mail: 840 / 1024,
   x: 104 / 128,
   instagram: 104 / 128,
@@ -1646,6 +1656,13 @@ function AppWindow({
     return (
       <WindowShell title="New Message" onClose={onClose} {...stackProps}>
         <MailComposeForm />
+      </WindowShell>
+    );
+  }
+  if (app === "chatgpt") {
+    return (
+      <WindowShell title="ChatGPT" onClose={onClose} {...stackProps}>
+        <ChatGPTApp />
       </WindowShell>
     );
   }
@@ -5412,12 +5429,13 @@ const DesktopIcon = ({
   };
 
   const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
-    if (!consumeDragClick()) {
-      onOpen();
+    if (consumeDragClick()) {
+      event.preventDefault();
+      event.stopPropagation();
       return;
     }
-    event.preventDefault();
-    event.stopPropagation();
+    // Keyboard activation opens immediately; pointer clicks open on the second click.
+    if (event.detail === 0 || event.detail === 2) onOpen();
   };
 
   const className = [
@@ -5458,7 +5476,6 @@ const HOME_SWIPE_SLOP = 24;
 const HOME_SWITCHER_LIFT = 70;
 const DRAG_MIN_SCALE = 0.4;
 const DRAG_SHRINK_REACH = 0.3;
-const DRAG_MAX_RADIUS = 36;
 
 const recordSample = (samples: PullSample[], y: number) => {
   const now = performance.now();
@@ -5491,7 +5508,7 @@ const readDragFrame = (
     x: viewport.width / 2 + offsetX - (viewport.width * scale) / 2,
     y: viewport.height - rise - viewport.height * scale,
     scale,
-    radius: Math.min(DRAG_MAX_RADIUS, rise * 0.4),
+    radius: Math.min(APP_CARD_RADIUS, rise * 0.4),
     opacity: 1,
   };
 };
