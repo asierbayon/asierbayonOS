@@ -6286,46 +6286,67 @@ type SwitcherSession = { entryId: number | null };
 
 type MenuBarPanelId = "wifi" | "battery" | "controlCenter";
 
-// The keyboard accessory bar makes iOS scroll the document, which uncovers the
-// page background. Hold the document still. ChatGPT's composer is the field
-// pinned to the bottom, so it lifts by the overlap instead of moving the page.
-const useKeyboardInset = () => {
+const KEYBOARD_FOLLOW_SELECTOR = "[data-follows-keyboard]";
+
+const clearKeyboardFollow = (root: HTMLElement) => {
+  delete root.dataset.keyboardFollow;
+  root.style.removeProperty("--visible-top");
+  root.style.removeProperty("--visible-height");
+  root.style.removeProperty("--keyboard-backdrop");
+};
+
+const findKeyboardSurface = () => {
+  const focused = document.activeElement;
+  if (!(focused instanceof HTMLElement)) {
+    return null;
+  }
+  return focused.closest<HTMLElement>(KEYBOARD_FOLLOW_SELECTOR);
+};
+
+// iOS ignores interactive-widget and pans the page to reveal a bottom field,
+// which uncovers the page background. Surfaces that opt in with
+// data-follows-keyboard get the desktop pinned to the visible area instead.
+const useKeyboardFollow = () => {
   useEffect(() => {
     const viewport = window.visualViewport;
     if (!viewport) {
       return;
     }
+    const root = document.documentElement;
 
-    const syncKeyboardInset = () => {
+    const syncKeyboardFollow = () => {
       const isMobile = window.matchMedia(MOBILE_QUERY).matches;
-      if (!isMobile) {
-        document.documentElement.style.removeProperty("--keyboard-overlap");
+      const surface = findKeyboardSurface();
+      if (!isMobile || !surface) {
+        clearKeyboardFollow(root);
         return;
       }
-
-      const overlap = Math.max(0, Math.round(window.innerHeight - viewport.height));
-      document.documentElement.style.setProperty("--keyboard-overlap", `${overlap}px`);
-      if (window.scrollX !== 0 || window.scrollY !== 0) {
-        window.scrollTo(0, 0);
-      }
+      root.dataset.keyboardFollow = "true";
+      root.style.setProperty("--visible-top", `${viewport.offsetTop}px`);
+      root.style.setProperty("--visible-height", `${viewport.height}px`);
+      root.style.setProperty("--keyboard-backdrop", getComputedStyle(surface).backgroundColor);
     };
 
-    syncKeyboardInset();
-    viewport.addEventListener("resize", syncKeyboardInset);
-    viewport.addEventListener("scroll", syncKeyboardInset);
-    window.addEventListener("resize", syncKeyboardInset);
+    syncKeyboardFollow();
+    viewport.addEventListener("resize", syncKeyboardFollow);
+    viewport.addEventListener("scroll", syncKeyboardFollow);
+    window.addEventListener("resize", syncKeyboardFollow);
+    document.addEventListener("focusin", syncKeyboardFollow);
+    document.addEventListener("focusout", syncKeyboardFollow);
 
     return () => {
-      viewport.removeEventListener("resize", syncKeyboardInset);
-      viewport.removeEventListener("scroll", syncKeyboardInset);
-      window.removeEventListener("resize", syncKeyboardInset);
-      document.documentElement.style.removeProperty("--keyboard-overlap");
+      viewport.removeEventListener("resize", syncKeyboardFollow);
+      viewport.removeEventListener("scroll", syncKeyboardFollow);
+      window.removeEventListener("resize", syncKeyboardFollow);
+      document.removeEventListener("focusin", syncKeyboardFollow);
+      document.removeEventListener("focusout", syncKeyboardFollow);
+      clearKeyboardFollow(root);
     };
   }, []);
 };
 
 export default function Home() {
-  useKeyboardInset();
+  useKeyboardFollow();
   const [openWindows, setOpenWindows] = useState<OpenWindow[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const desktopFilesRef = useRef<HTMLDivElement>(null);
