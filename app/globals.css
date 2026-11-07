@@ -3011,9 +3011,15 @@ body {
   }
 }
 
+.window-shell:has(.chatgpt-app) {
+  transition:
+    background-color 1.4s,
+    border-color 1.4s;
+}
 .window-shell:has(.chatgpt-app) .window-body {
   overflow: hidden;
   background: #fff;
+  transition: background-color 1.4s;
 }
 .window-shell:has(.chatgpt-app) .titlebar {
   transition:
@@ -3021,10 +3027,17 @@ body {
     border-color 1.4s,
     color 1.4s;
 }
+.window-shell:has(.chatgpt-app[data-theme="matrix"]) {
+  background: #000;
+  border-color: #000;
+}
+.window-shell:has(.chatgpt-app[data-theme="matrix"]) .window-body {
+  background: #000;
+}
 .window-shell:has(.chatgpt-app[data-theme="matrix"]) .titlebar {
   color: #3dff7a;
   background: #000;
-  border-color: #0b2a14;
+  border-color: #000;
 }
 @keyframes chatgpt-shimmer {
   from {
@@ -3524,7 +3537,14 @@ body {
 @media (max-width: 700px) {
   html,
   body {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
     min-width: 0;
+    min-height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
   }
   .desktop {
     background-position: 51% center;

@@ -3,7 +3,6 @@ export type NowPlayingTrack = {
   title: string;
   artist: string;
   cover: string;
-  start?: number;
 };
 
 export const YOUTUBE_ORIGIN = "https://www.youtube.com";
@@ -125,7 +124,6 @@ const navalRavikant: NowPlayingTrack = {
   title: "44 Harsh Truths About The Game Of Life - Naval Ravikant (4K)",
   artist: "Chris Williamson",
   cover: channelAvatar("ytc/AIdro_mmN30Y4ap7dtPfLw8Algolz_LGtHHpTJxa-qAw-MCQpdo"),
-  start: 468,
 };
 
 const longDayOut: NowPlayingTrack = {
@@ -168,7 +166,6 @@ const musicMixesPlaylist: YouTubePlaylist = {
       title: "It's summer 1987, you're driving in Miami",
       artist: "Rewindapp Studio",
       cover: rewindappAvatar,
-      start: 6037,
     },
     {
       videoId: "NS8DsXzU2Xg",
@@ -177,7 +174,6 @@ const musicMixesPlaylist: YouTubePlaylist = {
       cover: channelAvatar(
         "vOpys3yC13xwt1NpTNNLuIPfBTUSrKzg54CHtr54WK4UD2_krd_4h5T8lphKnDo-ahDFNq0hYA",
       ),
-      start: 2477,
     },
   ],
 };

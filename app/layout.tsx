@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import ConsoleArt from "./console-art";
 import "./globals.css";
@@ -15,6 +15,13 @@ const ogImage = {
   width: 1200,
   height: 630,
   alt: "A terminal window running whoami, which prints Asier Bayon",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  interactiveWidget: "overlays-content",
 };
 
 export const metadata: Metadata = {

@@ -8,12 +8,14 @@ import {
   type FormEvent,
 } from "react";
 import { useReducedMotion } from "motion/react";
+import { classifyPrompt, type ChatIntent } from "./chatgpt-intent";
 import MatrixRain from "./matrix-rain";
 
 type Phase =
   | "idle"
   | "thinking"
   | "answering"
+  | "replied"
   | "erasing"
   | "rethinking"
   | "matrix"
@@ -45,7 +47,12 @@ const MATRIX_SCRIPT: readonly ScriptLine[] = [
   { text: "Knock, knock, Neo.", reveal: "instant", holdMs: 3200 },
 ];
 
-const THINKING_MS = 2200;
+const GREETING_REPLY = "Hi.";
+const AGENT_REPLY = "Yes, I am.";
+
+// Sit on "Thinking" before a short reply or the matrix sequence.
+const THINKING_MS = 4000;
+const REPLY_TICK_MS = 70;
 const STREAM_TICK_MS = 28;
 const ANSWER_HOLD_MS = 700;
 const ERASE_TICK_MS = 10;
@@ -62,6 +69,16 @@ const BUSY_PHASES: readonly Phase[] = [
   "matrix",
 ];
 const MATRIX_PHASES: readonly Phase[] = ["matrix", "rain"];
+
+const directReplyFor = (intent: ChatIntent) => {
+  if (intent === "greeting") {
+    return GREETING_REPLY;
+  }
+  if (intent === "agent") {
+    return AGENT_REPLY;
+  }
+  return "";
+};
 
 const keystrokeDelay = (character: string) => {
   const jitter = 60 + Math.random() * 120;
@@ -118,6 +135,7 @@ const ChatGPTApp = () => {
   const [phase, setPhase] = useState<Phase>("idle");
   const [draft, setDraft] = useState("");
   const [prompt, setPrompt] = useState("");
+  const [intent, setIntent] = useState<ChatIntent>("matrix");
   const [answer, setAnswer] = useState("");
   const [matrixLine, setMatrixLine] = useState("");
   const [runId, setRunId] = useState(0);
@@ -174,8 +192,27 @@ const ChatGPTApp = () => {
       }
     };
 
+    const typeReply = async (reply: string) => {
+      setPhase("answering");
+      if (isInstant) {
+        setAnswer(reply);
+        setPhase("replied");
+        return;
+      }
+      for (let length = 1; length <= reply.length; length += 1) {
+        setAnswer(reply.slice(0, length));
+        await wait(REPLY_TICK_MS);
+      }
+      setPhase("replied");
+    };
+
     const playConversation = async () => {
       await wait(THINKING_MS);
+      const reply = directReplyFor(intent);
+      if (reply !== "") {
+        await typeReply(reply);
+        return;
+      }
       setPhase("answering");
       await streamAnswer();
       await wait(ANSWER_HOLD_MS);
@@ -199,13 +236,14 @@ const ChatGPTApp = () => {
     return () => {
       timers.forEach((timer) => window.clearTimeout(timer));
     };
-  }, [runId]);
+  }, [intent, runId]);
 
   const isBusy = BUSY_PHASES.includes(phase);
   const isMatrix = MATRIX_PHASES.includes(phase);
   const hasConversation = prompt !== "";
   const isThinking = phase === "thinking" || phase === "rethinking";
   const isStreaming = phase === "answering" || phase === "erasing";
+  const showAnswer = isStreaming || phase === "replied";
   const canSend = !isBusy && draft.trim() !== "";
 
   const handleDraftChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -217,7 +255,9 @@ const ChatGPTApp = () => {
     if (!canSend) {
       return;
     }
-    setPrompt(draft.trim());
+    const nextPrompt = draft.trim();
+    setPrompt(nextPrompt);
+    setIntent(classifyPrompt(nextPrompt));
     setDraft("");
     setAnswer("");
     setMatrixLine("");
@@ -228,6 +268,7 @@ const ChatGPTApp = () => {
   const handleNewChat = () => {
     setPrompt("");
     setDraft("");
+    setIntent("matrix");
     setAnswer("");
     setMatrixLine("");
     setPhase("idle");
@@ -237,7 +278,7 @@ const ChatGPTApp = () => {
   return (
     <div
       data-theme={isMatrix ? "matrix" : "light"}
-      className="chatgpt-app group relative flex h-full min-h-[320px] w-full flex-col overflow-hidden bg-white text-[15px] leading-7 text-[#0d0d0d] transition-colors duration-[1400ms] [font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe_UI',sans-serif] data-[theme=matrix]:bg-black data-[theme=matrix]:font-mono data-[theme=matrix]:text-[#3dff7a]"
+      className="chatgpt-app group relative flex h-full min-h-[320px] w-full flex-col overflow-hidden bg-white pb-[var(--keyboard-overlap,0px)] text-[15px] leading-7 text-[#0d0d0d] transition-colors duration-[1400ms] [font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe_UI',sans-serif] data-[theme=matrix]:bg-black data-[theme=matrix]:font-mono data-[theme=matrix]:text-[#3dff7a]"
     >
       <header className="flex h-12 shrink-0 items-center justify-between px-3">
         <span className="flex items-center gap-1 rounded-lg px-2 py-1 text-lg font-medium">
@@ -262,13 +303,15 @@ const ChatGPTApp = () => {
             </p>
             <div aria-live="polite" className="min-h-7">
               {isThinking && <ThinkingLabel />}
-              {isStreaming && (
+              {showAnswer && (
                 <p className="whitespace-pre-wrap">
                   {answer}
-                  <span
-                    aria-hidden="true"
-                    className="ml-1 inline-block size-3 rounded-full bg-current align-middle"
-                  />
+                  {isStreaming && (
+                    <span
+                      aria-hidden="true"
+                      className="ml-1 inline-block size-3 rounded-full bg-current align-middle"
+                    />
+                  )}
                 </p>
               )}
               {phase === "matrix" && (
@@ -291,12 +334,17 @@ const ChatGPTApp = () => {
         )}
       </main>
 
-      <form onSubmit={handleSubmit} className="mx-auto w-full max-w-[720px] shrink-0 px-4 pb-2">
+      <form autoComplete="off" onSubmit={handleSubmit} className="mx-auto w-full max-w-[720px] shrink-0 px-4 pb-2">
         <div className="flex items-center gap-2 rounded-[28px] border border-black/10 bg-white py-2 pr-2 pl-5 shadow-[0_4px_16px_rgba(0,0,0,0.06)] transition-colors duration-[1400ms] group-data-[theme=matrix]:border-[#3dff7a]/30 group-data-[theme=matrix]:bg-black group-data-[theme=matrix]:shadow-none">
           <input
+            type="text"
             value={draft}
             onChange={handleDraftChange}
             disabled={isBusy}
+            autoComplete="off"
+            autoCapitalize="sentences"
+            enterKeyHint="send"
+            spellCheck
             aria-label="Message ChatGPT"
             placeholder="Ask anything"
             className="min-w-0 flex-1 bg-transparent py-1.5 text-base outline-none placeholder:text-[#8f8f8f] disabled:cursor-not-allowed group-data-[theme=matrix]:placeholder:text-[#3dff7a]/40"
