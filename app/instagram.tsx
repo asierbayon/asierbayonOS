@@ -32,7 +32,6 @@ export type Post = {
   comments: PostComment[];
 };
 
-type Highlight = { label: string; postId: string };
 type ProfileTab = "posts" | "reels" | "tagged";
 
 export const USERNAME = "asierbayon";
@@ -425,15 +424,6 @@ export const posts: Post[] = [
   },
 ];
 
-const highlights: Highlight[] = [
-  { label: "Eclipse", postId: "eclipse" },
-  { label: "Glaciers", postId: "glacier-lake" },
-  { label: "Zermatt", postId: "matterhorn-cave" },
-  { label: "Night", postId: "milky-way" },
-  { label: "Madeira", postId: "fanal" },
-  { label: "Iceland", postId: "kirkjufell" },
-];
-
 const profileTabs: { id: ProfileTab; label: string; icon: IconName }[] = [
   { id: "posts", label: "Posts", icon: "grid" },
   { id: "reels", label: "Reels", icon: "reels" },
@@ -553,12 +543,6 @@ const UserAvatar = ({ handle, className = "size-8" }: { handle: string; classNam
     </span>
   );
 };
-
-const StoryRing = ({ children, className }: { children: ReactNode; className: string }) => (
-  <span className={`${className} block shrink-0 rounded-full bg-linear-to-tr from-[#feda75] via-[#d62976] to-[#4f5bd5] p-[3px]`}>
-    <span className="block size-full rounded-full bg-black p-[3px]">{children}</span>
-  </span>
-);
 
 const ProfileActions = ({
   isFollowing,
@@ -932,9 +916,7 @@ const PostViewer = ({
 
         <div className="flex min-h-0 flex-1 flex-col @3xl:w-[340px] @3xl:flex-none @3xl:border-l @3xl:border-[#262626]">
           <header className="flex items-center gap-3 border-b border-[#262626] px-4 py-3">
-            <StoryRing className="size-9">
-              <UserAvatar handle={USERNAME} className="size-full" />
-            </StoryRing>
+            <UserAvatar handle={USERNAME} className="size-8" />
             <div className="min-w-0 flex-1 text-sm leading-[18px]">
               <p className="font-semibold">{USERNAME}</p>
               <p className="truncate text-xs text-[#a8a8a8]">{post.location}</p>
@@ -1086,15 +1068,16 @@ export default function InstagramProfile() {
 
   return (
     <div className="instagram-app @container relative flex min-h-0 flex-1 flex-col bg-black text-[#f5f5f5] select-text [color-scheme:dark]">
+      <header className="flex h-11 shrink-0 items-center justify-center border-b border-[#262626] px-4 min-[701px]:hidden">
+        <h1 className="truncate text-base font-bold">{USERNAME}</h1>
+      </header>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <div className="mx-auto max-w-[935px] px-4 pt-5 pb-10 @2xl:px-5 @2xl:pt-8">
           <header className="flex items-center gap-6 @2xl:items-start @2xl:gap-16 @2xl:px-10">
-            <StoryRing className="size-[86px] @2xl:size-[150px]">
-              <UserAvatar handle={USERNAME} className="size-full" />
-            </StoryRing>
+            <UserAvatar handle={USERNAME} className="size-[86px] @2xl:size-[150px]" />
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-                <h2 className="text-xl leading-6 font-normal">{USERNAME}</h2>
+                <h2 className="hidden text-xl leading-6 font-normal min-[701px]:block">{USERNAME}</h2>
                 <ProfileActions isFollowing={isFollowing} onToggleFollow={handleToggleFollow} className="hidden @2xl:flex" />
               </div>
               <ProfileStats className="mt-3 flex gap-5 @2xl:mt-5 @2xl:gap-10 @2xl:text-base" />
@@ -1103,32 +1086,6 @@ export default function InstagramProfile() {
           </header>
           <ProfileBio className="mt-4 @2xl:hidden" />
           <ProfileActions isFollowing={isFollowing} onToggleFollow={handleToggleFollow} className="mt-4 flex @2xl:hidden" />
-
-          <ul aria-label="Story highlights" className="mt-6 flex gap-4 overflow-x-auto pb-2 [scrollbar-width:none] @2xl:mt-10 @2xl:gap-11 @2xl:px-10">
-            {highlights.map((highlight) => (
-              <li key={highlight.label} className="shrink-0">
-                <button
-                  type="button"
-                  aria-label={`Open ${highlight.label} highlight`}
-                  onClick={() => handleOpenPost(highlight.postId)}
-                  className="flex w-16 cursor-pointer flex-col items-center gap-1.5 @2xl:w-[87px]"
-                >
-                  <span className="block size-16 rounded-full border border-[#363636] bg-[#121212] p-[3px] @2xl:size-[87px]">
-                    <img
-                      src={thumbSrc(highlight.postId)}
-                      alt=""
-                      width={THUMB_WIDTH}
-                      height={600}
-                      loading="lazy"
-                      decoding="async"
-                      className="size-full rounded-full object-cover"
-                    />
-                  </span>
-                  <span className="max-w-full truncate text-xs font-semibold">{highlight.label}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
 
           <div role="tablist" aria-label="Profile content" className="mt-6 flex justify-center gap-14 border-t border-[#262626] @2xl:mt-10">
             {profileTabs.map((tab) => {
