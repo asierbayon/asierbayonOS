@@ -2829,7 +2829,7 @@ body {
   place-items: center;
   color: #b3b3b3;
 }
-.spotify-controls button:not(:disabled):hover {
+.spotify-controls button:not(.spotify-play):not(:disabled):hover {
   color: #fff;
 }
 .spotify-controls .spotify-icon {
@@ -2870,7 +2870,7 @@ body {
   cursor: pointer;
 }
 .spotify-progress input:hover:not(:disabled) {
-  background: linear-gradient(
+  background-image: linear-gradient(
     to right,
     #1ed760 var(--spotify-progress),
     #4d4d4d var(--spotify-progress)
@@ -2996,7 +2996,9 @@ body {
     background-position: center;
     background-size: 100% 4px;
   }
-  .spotify-progress input::-webkit-slider-thumb,
+  .spotify-progress input::-webkit-slider-thumb {
+    opacity: 1;
+  }
   .spotify-progress input::-moz-range-thumb {
     opacity: 1;
   }
