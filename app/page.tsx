@@ -2644,7 +2644,7 @@ function SpotifyWindow({
             </div>
           </div>
           <div className="spotify-player-status" role="status">
-            {isOffline ? "You're offline" : !isReady ? "Loading player…" : null}
+            {isOffline ? "You're offline" : null}
           </div>
         </footer>
         {player.hasPlaybackError ? (
@@ -2705,7 +2705,7 @@ const SpotifyWidget = ({ player, variant, onOpen }: SpotifyWidgetProps) => {
   const isDisabled = isOffline || !isReady;
   const playLabel = isPlaying ? "Pause" : "Play";
   const playIcon = isPlaying ? "pause" : "play";
-  const subtitle = isOffline ? "You're offline" : !isReady ? "Loading player…" : track.artist;
+  const subtitle = isOffline ? "You're offline" : track.artist;
   const statusLabel = `${isPlaying ? "Now playing" : "Paused"}: ${track.title} by ${track.artist}`;
   const handleOpen = () => {
     onOpen?.();
