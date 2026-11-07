@@ -3011,6 +3011,40 @@ body {
   }
 }
 
+.window-shell:has(.chatgpt-app) .window-body {
+  overflow: hidden;
+  background: #fff;
+}
+.window-shell:has(.chatgpt-app) .titlebar {
+  transition:
+    background-color 1.4s,
+    border-color 1.4s,
+    color 1.4s;
+}
+.window-shell:has(.chatgpt-app[data-theme="matrix"]) .titlebar {
+  color: #3dff7a;
+  background: #000;
+  border-color: #0b2a14;
+}
+@keyframes chatgpt-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+@keyframes matrix-cursor-blink {
+  50% {
+    opacity: 0;
+  }
+}
+@keyframes matrix-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
 .window-shell:has(.youtube-app) .window-body {
   display: flex;
   flex-direction: column;
