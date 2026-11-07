@@ -52,10 +52,10 @@ export const posts: Post[] = [
     commentCount: 212,
     date: "August 12",
     comments: [
-      { user: "itziar.photo", text: "This is unreal. How did you get the corona so clean?", likes: 48, time: "12w" },
-      { user: "mikel.bilbao", text: "Qué pasada tío 🔥🔥", likes: 21, time: "12w" },
+      { user: "itziar_photo", text: "This is unreal. How did you get the corona so clean?", likes: 48, time: "12w" },
+      { user: "mikel_bilbao", text: "Qué pasada tío 🔥🔥", likes: 21, time: "12w" },
       { user: "nora_outdoors", text: "Saving this one forever", likes: 9, time: "12w" },
-      { user: "asierbayon", text: "@itziar.photo 1/250s, a lot of luck and zero clouds 🙏", likes: 14, time: "12w" },
+      { user: "asierbayon", text: "1/250s, a lot of luck and zero clouds 🙏", likes: 14, time: "12w" },
     ],
   },
   {
@@ -69,9 +69,9 @@ export const posts: Post[] = [
     commentCount: 87,
     date: "August 2",
     comments: [
-      { user: "jonas.peaks", text: "Please tell me that ice held 😅", likes: 33, time: "13w" },
-      { user: "ane.travels", text: "The light on the water!!", likes: 12, time: "13w" },
-      { user: "unai.climbs", text: "Iconic pose", likes: 6, time: "13w" },
+      { user: "jonas_peaks", text: "Please tell me that ice held 😅", likes: 33, time: "13w" },
+      { user: "ane_travels", text: "The light on the water!!", likes: 12, time: "13w" },
+      { user: "unai_climbs", text: "Iconic pose", likes: 6, time: "13w" },
     ],
   },
   {
@@ -86,8 +86,8 @@ export const posts: Post[] = [
     commentCount: 164,
     date: "August 2",
     comments: [
-      { user: "swissvibes.daily", text: "Would love to feature this on our page! DM'd you 🇨🇭", likes: 57, time: "13w" },
-      { user: "lena.wandert", text: "Looks like another planet", likes: 24, time: "13w" },
+      { user: "swissvibes_daily", text: "Would love to feature this on our page! DM'd you 🇨🇭", likes: 57, time: "13w" },
+      { user: "lena_wandert", text: "Looks like another planet", likes: 24, time: "13w" },
       { user: "thomas_zrh", text: "Drone shots hitting different this summer", likes: 11, time: "13w" },
     ],
   },
@@ -102,9 +102,9 @@ export const posts: Post[] = [
     commentCount: 143,
     date: "March 9",
     comments: [
-      { user: "luca.altitude", text: "That blue ice is insane", likes: 39, time: "35w" },
-      { user: "elena.mts", text: "Is this cave still accessible? Need the spot 👀", likes: 18, time: "35w" },
-      { user: "asierbayon", text: "@elena.mts changes every season, ask the guides in Zermatt", likes: 7, time: "35w" },
+      { user: "luca_altitude", text: "That blue ice is insane", likes: 39, time: "35w" },
+      { user: "elena_mts", text: "Is this cave still accessible? Need the spot 👀", likes: 18, time: "35w" },
+      { user: "asierbayon", text: "It changes every season, ask the guides in Zermatt", likes: 7, time: "35w" },
     ],
   },
   {
@@ -134,9 +134,9 @@ export const posts: Post[] = [
     commentCount: 118,
     date: "June 28, 2025",
     comments: [
-      { user: "kai.nordic", text: "Postcard levels of perfect", likes: 31, time: "1y" },
-      { user: "itziar.photo", text: "The foreground flowers make it", likes: 15, time: "1y" },
-      { user: "jonas.peaks", text: "Berggasthaus owes you a commission", likes: 22, time: "1y" },
+      { user: "kai_nordic", text: "Postcard levels of perfect", likes: 31, time: "1y" },
+      { user: "itziar_photo", text: "The foreground flowers make it", likes: 15, time: "1y" },
+      { user: "jonas_peaks", text: "Berggasthaus owes you a commission", likes: 22, time: "1y" },
     ],
   },
   {
@@ -166,8 +166,8 @@ export const posts: Post[] = [
     commentCount: 63,
     date: "May 31, 2025",
     comments: [
-      { user: "luca.altitude", text: "Ticino in spring never misses", likes: 14, time: "1y" },
-      { user: "ane.travels", text: "That light 🧡", likes: 7, time: "1y" },
+      { user: "luca_altitude", text: "Ticino in spring never misses", likes: 14, time: "1y" },
+      { user: "ane_travels", text: "That light 🧡", likes: 7, time: "1y" },
     ],
   },
   {
@@ -181,9 +181,9 @@ export const posts: Post[] = [
     commentCount: 231,
     date: "October 19, 2024",
     comments: [
-      { user: "swissvibes.daily", text: "One of the prettiest lakes in the country 😍", likes: 64, time: "2y" },
-      { user: "elena.mts", text: "The reflection is perfect", likes: 27, time: "2y" },
-      { user: "mikel.bilbao", text: "Esto parece pintado", likes: 13, time: "2y" },
+      { user: "swissvibes_daily", text: "One of the prettiest lakes in the country 😍", likes: 64, time: "2y" },
+      { user: "elena_mts", text: "The reflection is perfect", likes: 27, time: "2y" },
+      { user: "mikel_bilbao", text: "Esto parece pintado", likes: 13, time: "2y" },
       { user: "sofia_trails", text: "Adding to my autumn list", likes: 5, time: "2y" },
     ],
   },
@@ -198,9 +198,9 @@ export const posts: Post[] = [
     commentCount: 152,
     date: "August 3, 2024",
     comments: [
-      { user: "lena.wandert", text: "That colour can't be real", likes: 35, time: "2y" },
+      { user: "lena_wandert", text: "That colour can't be real", likes: 35, time: "2y" },
       { user: "marc_alpine", text: "Did the panorama trail too, so good", likes: 12, time: "2y" },
-      { user: "kai.nordic", text: "Moody and perfect", likes: 6, time: "2y" },
+      { user: "kai_nordic", text: "Moody and perfect", likes: 6, time: "2y" },
     ],
   },
   {
@@ -214,8 +214,8 @@ export const posts: Post[] = [
     commentCount: 74,
     date: "July 20, 2024",
     comments: [
-      { user: "unai.climbs", text: "Hut life is the best life", likes: 22, time: "2y" },
-      { user: "jonas.peaks", text: "That glacier view from the window though", likes: 9, time: "2y" },
+      { user: "unai_climbs", text: "Hut life is the best life", likes: 22, time: "2y" },
+      { user: "jonas_peaks", text: "That glacier view from the window though", likes: 9, time: "2y" },
     ],
   },
   {
@@ -229,9 +229,9 @@ export const posts: Post[] = [
     commentCount: 187,
     date: "June 22, 2024",
     comments: [
-      { user: "ane.travels", text: "The yellow flowers in front 👌", likes: 29, time: "2y" },
-      { user: "kai.nordic", text: "Iceland is calling me", likes: 16, time: "2y" },
-      { user: "itziar.photo", text: "Love the scale with you on the cliff", likes: 11, time: "2y" },
+      { user: "ane_travels", text: "The yellow flowers in front 👌", likes: 29, time: "2y" },
+      { user: "kai_nordic", text: "Iceland is calling me", likes: 16, time: "2y" },
+      { user: "itziar_photo", text: "Love the scale with you on the cliff", likes: 11, time: "2y" },
     ],
   },
   {
@@ -261,8 +261,8 @@ export const posts: Post[] = [
     commentCount: 81,
     date: "December 30, 2023",
     comments: [
-      { user: "swissvibes.daily", text: "What a way to close the year", likes: 21, time: "3y" },
-      { user: "elena.mts", text: "Those layers of clouds 😮‍💨", likes: 8, time: "3y" },
+      { user: "swissvibes_daily", text: "What a way to close the year", likes: 21, time: "3y" },
+      { user: "elena_mts", text: "Those layers of clouds 😮‍💨", likes: 8, time: "3y" },
     ],
   },
   {
@@ -276,7 +276,7 @@ export const posts: Post[] = [
     commentCount: 69,
     date: "February 11, 2023",
     comments: [
-      { user: "luca.altitude", text: "Bucket list", likes: 13, time: "3y" },
+      { user: "luca_altitude", text: "Bucket list", likes: 13, time: "3y" },
       { user: "nora_outdoors", text: "The textures on the ceiling!!", likes: 9, time: "3y" },
     ],
   },
@@ -292,9 +292,9 @@ export const posts: Post[] = [
     date: "October 8, 2023",
     comments: [
       { user: "sofia_trails", text: "Looks like a fairytale forest", likes: 25, time: "3y" },
-      { user: "mikel.bilbao", text: "Madeira 🔝", likes: 11, time: "3y" },
-      { user: "ane.travels", text: "Going next month, any tips?", likes: 4, time: "3y" },
-      { user: "asierbayon", text: "@ane.travels go early, the fog is best before 9am", likes: 6, time: "3y" },
+      { user: "mikel_bilbao", text: "Madeira 🔝", likes: 11, time: "3y" },
+      { user: "ane_travels", text: "Going next month, any tips?", likes: 4, time: "3y" },
+      { user: "asierbayon", text: "Go early, the fog is best before 9am", likes: 6, time: "3y" },
     ],
   },
   {
@@ -308,8 +308,8 @@ export const posts: Post[] = [
     commentCount: 52,
     date: "October 6, 2023",
     comments: [
-      { user: "itziar.photo", text: "B&W suits this place", likes: 14, time: "3y" },
-      { user: "unai.climbs", text: "That rock is huge", likes: 3, time: "3y" },
+      { user: "itziar_photo", text: "B&W suits this place", likes: 14, time: "3y" },
+      { user: "unai_climbs", text: "That rock is huge", likes: 3, time: "3y" },
     ],
   },
   {
@@ -323,8 +323,8 @@ export const posts: Post[] = [
     commentCount: 126,
     date: "August 19, 2023",
     comments: [
-      { user: "jonas.peaks", text: "Took me way too long to find them", likes: 38, time: "3y" },
-      { user: "lena.wandert", text: "This is the scale I needed today", likes: 12, time: "3y" },
+      { user: "jonas_peaks", text: "Took me way too long to find them", likes: 38, time: "3y" },
+      { user: "lena_wandert", text: "This is the scale I needed today", likes: 12, time: "3y" },
       { user: "marc_alpine", text: "Chamonix is something else", likes: 7, time: "3y" },
     ],
   },
@@ -339,8 +339,8 @@ export const posts: Post[] = [
     commentCount: 201,
     date: "July 30, 2023",
     comments: [
-      { user: "swissvibes.daily", text: "That flare + the curve of the glacier 🤌", likes: 52, time: "3y" },
-      { user: "kai.nordic", text: "Absolutely stunning", likes: 17, time: "3y" },
+      { user: "swissvibes_daily", text: "That flare + the curve of the glacier 🤌", likes: 52, time: "3y" },
+      { user: "kai_nordic", text: "Absolutely stunning", likes: 17, time: "3y" },
       { user: "maite_go", text: "Increíble", likes: 5, time: "3y" },
     ],
   },
@@ -355,7 +355,7 @@ export const posts: Post[] = [
     commentCount: 77,
     date: "July 2, 2023",
     comments: [
-      { user: "elena.mts", text: "Alpenglow hits different", likes: 16, time: "3y" },
+      { user: "elena_mts", text: "Alpenglow hits different", likes: 16, time: "3y" },
       { user: "thomas_zrh", text: "Those colours!!", likes: 6, time: "3y" },
     ],
   },
@@ -371,7 +371,7 @@ export const posts: Post[] = [
     date: "June 17, 2023",
     comments: [
       { user: "nora_outdoors", text: "Look at those horns 😳", likes: 27, time: "3y" },
-      { user: "luca.altitude", text: "Steinbock modelling career unlocked", likes: 41, time: "3y" },
+      { user: "luca_altitude", text: "Steinbock modelling career unlocked", likes: 41, time: "3y" },
       { user: "sofia_trails", text: "So majestic", likes: 8, time: "3y" },
     ],
   },
@@ -386,8 +386,8 @@ export const posts: Post[] = [
     commentCount: 58,
     date: "June 10, 2023",
     comments: [
-      { user: "unai.climbs", text: "Love the framing", likes: 11, time: "3y" },
-      { user: "ane.travels", text: "That orange peak 🧡", likes: 5, time: "3y" },
+      { user: "unai_climbs", text: "Love the framing", likes: 11, time: "3y" },
+      { user: "ane_travels", text: "That orange peak 🧡", likes: 5, time: "3y" },
     ],
   },
   {
@@ -401,9 +401,9 @@ export const posts: Post[] = [
     commentCount: 109,
     date: "May 21, 2023",
     comments: [
-      { user: "kai.nordic", text: "The walk is longer than people think 😂", likes: 23, time: "3y" },
-      { user: "mikel.bilbao", text: "Top Gun vibes", likes: 9, time: "3y" },
-      { user: "itziar.photo", text: "Clean edit", likes: 4, time: "3y" },
+      { user: "kai_nordic", text: "The walk is longer than people think 😂", likes: 23, time: "3y" },
+      { user: "mikel_bilbao", text: "Top Gun vibes", likes: 9, time: "3y" },
+      { user: "itziar_photo", text: "Clean edit", likes: 4, time: "3y" },
     ],
   },
   {
@@ -417,9 +417,9 @@ export const posts: Post[] = [
     commentCount: 134,
     date: "May 18, 2023",
     comments: [
-      { user: "lena.wandert", text: "You look so tiny 😮", likes: 30, time: "3y" },
-      { user: "jonas.peaks", text: "Did you get soaked?", likes: 12, time: "3y" },
-      { user: "asierbayon", text: "@jonas.peaks completely 🌊", likes: 8, time: "3y" },
+      { user: "lena_wandert", text: "You look so tiny 😮", likes: 30, time: "3y" },
+      { user: "jonas_peaks", text: "Did you get soaked?", likes: 12, time: "3y" },
+      { user: "asierbayon", text: "Completely 🌊", likes: 8, time: "3y" },
     ],
   },
 ];
