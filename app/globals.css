@@ -3549,6 +3549,16 @@ body {
   .desktop {
     background-position: 51% center;
   }
+  /* Set from page.tsx while a keyboard-following field is focused. */
+  html[data-keyboard-follow],
+  html[data-keyboard-follow] body {
+    background: var(--keyboard-backdrop, #24559a);
+  }
+  html[data-keyboard-follow] .desktop {
+    top: var(--visible-top, 0px);
+    bottom: auto;
+    height: var(--visible-height, 100%);
+  }
   .desktop::after {
     background: linear-gradient(
       to bottom,
