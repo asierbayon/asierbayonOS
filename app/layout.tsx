@@ -10,12 +10,20 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 const title = "Asier Bayon";
 const description = "The interactive desktop portfolio of independent product and brand designer Asier.";
 
+const ogImage = {
+  url: "/og.png",
+  width: 1200,
+  height: 630,
+  alt: "A terminal window running whoami, which prints Asier Bayon",
+};
+
 export const metadata: Metadata = {
+  metadataBase: new URL("https://asierbayon2.vercel.app"),
   title,
   description,
   icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
-  openGraph: { title, description, type: "website" },
-  twitter: { card: "summary", title, description },
+  openGraph: { title, description, type: "website", images: [ogImage] },
+  twitter: { card: "summary_large_image", title, description, images: [ogImage] },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
