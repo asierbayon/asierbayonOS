@@ -70,6 +70,8 @@ const projects: Project[] = [
     title: "ANTI GUM",
     category: "Ecommerce",
     description: "Mastic gum ecommerce.",
+    outcome:
+      "Special thanks to the EU for killing this business with their new import taxes.",
     url: "https://antigum.com",
     image: "/asier/projects/anti-gum.png",
   },
