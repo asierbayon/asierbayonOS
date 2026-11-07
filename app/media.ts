@@ -262,6 +262,22 @@ export const postPlayerMessage = (
   iframe?.contentWindow?.postMessage(JSON.stringify(message), YOUTUBE_ORIGIN);
 };
 
+export type YouTubeSession = {
+  track: NowPlayingTrack;
+  isPlaying: boolean;
+  togglePlay: () => void;
+  previous: () => void;
+  next: () => void;
+};
+
+export const sendPlayerCommand = (
+  iframe: HTMLIFrameElement | null,
+  func: string,
+  args: unknown[] = [],
+) => {
+  postPlayerMessage(iframe, { event: "command", func, args });
+};
+
 export const applyPlayerVolume = (
   iframe: HTMLIFrameElement | null,
   volume: number,
