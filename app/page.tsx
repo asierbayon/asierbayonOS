@@ -6371,13 +6371,12 @@ const usePreventBrowserZoom = () => {
 };
 
 const clearTypingViewport = () => {
-  document.documentElement.style.removeProperty("--visible-height");
-  document.querySelector(".desktop")?.removeAttribute("data-keyboard");
+  document.documentElement.style.removeProperty("--keyboard-overlap");
 };
 
-// iOS pans the page to keep a bottom field on screen, which uncovers the
-// page background. Focus that field without scrolling and shrink the screen
-// to the area above the keyboard.
+// The screen keeps its full height while the keyboard is open. Only fields
+// marked data-follows-keyboard lift by --keyboard-overlap to stay above it,
+// measured from the visible area in case iOS still pans the page.
 const useTypingViewport = () => {
   useEffect(() => {
     const viewport = window.visualViewport;
@@ -6389,21 +6388,18 @@ const useTypingViewport = () => {
     };
 
     const syncTypingViewport = () => {
-      const desktop = document.querySelector<HTMLElement>(".desktop");
       const isMobile = window.matchMedia(MOBILE_QUERY).matches;
       const focused = document.activeElement;
       const followsKeyboard =
         isTextField(focused) && Boolean(focused.closest("[data-follows-keyboard]"));
-      if (!desktop || !isMobile || !followsKeyboard) {
+      if (!isMobile || !followsKeyboard) {
         clearTypingViewport();
         return;
       }
       resetScroll();
-      document.documentElement.style.setProperty(
-        "--visible-height",
-        `${Math.round(viewport.height)}px`,
-      );
-      desktop.dataset.keyboard = "open";
+      const visibleBottom = viewport.offsetTop + viewport.height;
+      const overlap = Math.max(0, Math.round(window.innerHeight - visibleBottom));
+      document.documentElement.style.setProperty("--keyboard-overlap", `${overlap}px`);
     };
 
     const handleTouchEnd = (event: TouchEvent) => {

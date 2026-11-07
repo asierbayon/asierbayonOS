@@ -3551,12 +3551,6 @@ body {
   .desktop {
     background-position: 51% center;
   }
-  /* Set from page.tsx while typing in a field pinned to the bottom. */
-  .desktop[data-keyboard="open"] {
-    top: 0;
-    bottom: auto;
-    height: var(--visible-height, 100%);
-  }
   .desktop::after {
     background: linear-gradient(
       to bottom,
