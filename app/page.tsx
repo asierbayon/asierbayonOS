@@ -1497,7 +1497,9 @@ function DesktopDock({
       onPointerCancel={() => pointerX.set(Infinity)}
     >
       <span className="dock-liquid-surface" aria-hidden="true" />
-      {apps.filter((app) => app.id !== "trash").map(renderApp)}
+      {apps
+        .filter((app) => app.id !== "trash" && app.id !== "weather")
+        .map(renderApp)}
       <span className="dock-divider" aria-hidden="true" />
       <AnimatePresence initial={false}>
         {minimizedWindows.map((tile) => (
@@ -6588,7 +6590,12 @@ export default function Home() {
               onOpen={handleOpenProjectsFolder}
             />
             {apps
-              .filter((app) => app.id !== "trash" && !isMobileDockApp(app))
+              .filter(
+                (app) =>
+                  app.id !== "trash" &&
+                  app.id !== "weather" &&
+                  !isMobileDockApp(app),
+              )
               .map((app) => (
                 <AppLauncher key={app.id} app={app} onOpen={openApp}>
                   <span>{app.name}</span>
