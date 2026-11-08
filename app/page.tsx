@@ -1085,6 +1085,7 @@ type Note = {
   id: string;
   title: string;
   meta: string;
+  section?: string;
   paragraphs: string[];
   url?: string;
   image?: string;
@@ -1105,6 +1106,85 @@ const noteFolders: NoteFolder[] = [
           "Chief Product Officer at CitizenX.",
           "Mountain and cow photographer during the summer, powder skiing enthusiast during winter, and building stuff on the Internet all year round.",
           "I'm driven by discovering market gaps, and crafting visual beauty.",
+        ],
+      },
+      {
+        id: "crypto-journey",
+        title: "Money, or make money: a simplified framework for this clown market",
+        meta: "8 November 2026",
+        section: "Writings",
+        paragraphs: [
+          "TLDR:",
+          "I spent years convinced Ethereum would become one of the most valuable assets in the world. I was wrong about how to value it, I sold all my ETH, and this is the framework that replaced that belief.",
+          "Today, I postulate that there are only 2 types of tokens worth taking seriously:",
+          "1) Tokens that are money.",
+          "2) Tokens that make money.",
+          "Everything else is speculative premium trying very hard to be mistaken for intrinsic value.",
+          "Some context, briefly.",
+          "I was balls deep in Ethereum.",
+          "This was not a trade. I genuinely believed ETH was becoming money, that it would become not just the most valuable asset in crypto but one of the most valuable assets in the world, and I sized my bets accordingly.",
+          "This will become relevant later, unfortunately.",
+          "Then the 2024 cycle did not cooperate. BTC had its bull market, a few others did well, and ETH lagged. My first reaction was that the market was wrong, the hate was unjustified, and the correct move was to keep buying.",
+          "To be fair, some of the criticism was deserved — the Ethereum Foundation and the community were out of sync — but I thought the timeline was overstating it, so I treated the whole thing as an opportunity.",
+          "Eventually I had to entertain the forbidden possibility: maybe the problem was not the market. Maybe the problem was my valuation model.",
+          "So I sold all my ETH.",
+          "This is the model I use now.",
+          "We are in the early innings of the 2026/2027 cycle (if that is what we are calling it), and the framework has become stupidly simple.",
+          "Bucket 1: tokens that are money.",
+          "Bitcoin is the example.",
+          "People believe BTC is money. People believe BTC is a store of value. That collective belief is a monetary premium, and it is priced in.",
+          "This is memetics first, valuation second.",
+          "Everyone knows the pitch. 21 million. Hard cap. Never more. Even people who cannot explain what a block is can repeat it back to you.",
+          "ETH tried to run the same play with “ultrasound money”. A part of the community believed it. The wider crypto culture never really did.",
+          "Here is the thing: a monetary premium cannot be declared in a blog post. It has to be believed, collectively, by people who will never read your blog post.",
+          "You cannot roadmap your way into being money.",
+          "If another asset gets admitted into this very small club, my candidate is Zcash. Right now, it is the only one I can see earning a serious monetary premium.",
+          "But let us be very clear about what Zcash, or any other challenger, would actually need to get there.",
+          "Interesting is not enough. Undervalued is not enough. Good technology is definitely not enough.",
+          "What a monetary asset needs is a very strong, almost religious belief. A cult of holders convinced that this is the best asset humanity has ever created.",
+          "And that belief cannot stay inside crypto Twitter. It has to spread into the memetics of the retail market, until ordinary participants repeat it not as a trade idea, but as something they have simply absorbed as true.",
+          "They have to believe this thing will go to the moon, survive everything thrown at it, and outperform every other asset on Earth. Not as a position they are managing. As an article of faith.",
+          "If that blind belief is not there, there is no monetary premium.",
+          "There is only musical chairs.",
+          "Everyone buys while quietly watching the exit, waiting for the pump so they can dump their bags on the person who arrived after them. Everyone believes in the asset exactly until the moment they can sell it to someone else.",
+          "That is not money. That is PvP with extra steps.",
+          "Money needs believers who think selling would be insane. Musical chairs only needs participants.",
+          "Bucket 2: tokens that make money.",
+          "Hyperliquid. Lighter. Tokens with actual revenue, where some of that value flows back to holders, for example through buybacks.",
+          "For these, valuation is mercifully simpler.",
+          "How much money do you make?",
+          "And how long can you keep making it?",
+          "That is it. That is the model.",
+          "Yes, we have finally discovered reading a revenue statement. Groundbreaking stuff.",
+          "Case study: PUMP.",
+          "PUMP makes an absurd amount of revenue. Nobody disputes the revenue. What the market disputes is the duration. So the token trades cheap relative to that revenue, because nobody wants to pay a premium for cash flows that may disappear when the music stops.",
+          "Case study: Hyperliquid.",
+          "The opposite. The market pays a rich valuation because it expects the perps market to keep growing, expects Hyperliquid to keep capturing it, and sees optionality on top: options, prediction markets, other financial products. Same revenue today can deserve a completely different price, depending on whether people believe the revenue still exists tomorrow.",
+          "Belief again.",
+          "Funny how that works.",
+          "As more participants adopt this framework, I expect flows to keep rotating out of the old sacred cows — ETH, SOL, the other L1s and L2s whose valuations rested on narratives from the last cycle — and into these 2 buckets.",
+          "And to be clear, I do not just mean they underperform. ETH and SOL will lose part of the valuation they still have today.",
+          "Why?",
+          "Because a meaningful part of that valuation was never about users, apps, or cash flows. They were being priced, at least in part, as money. There is a monetary premium embedded in their prices.",
+          "And that premium is now slowly going away, as more and more people reach the same conclusion I did: they are not money.",
+          "A premium that was built on collective belief does not survive the belief disappearing. It does not need to vanish in one candle either. It can bleed out slowly, over years, while everyone argues about something else.",
+          "Does that mean ETH and SOL go to zero?",
+          "No.",
+          "The networks can still be worth something. Blockchains, it turns out, are allowed to have value without being money. But the part of the price that assumed money status is leaving, and what remains will have to be justified the hard way: by making money.",
+          "If retail comes back, sure, almost everything can pump in nominal terms. This is crypto. But a cyclical pump does not resurrect a monetary premium that people no longer believe in, and I do not expect them to keep up with assets that actually have one, or with assets that actually generate cash flows.",
+          "One final distinction, and I think it is the important one: monetary assets have far more upside than revenue assets.",
+          "Why?",
+          "Because a revenue token is always anchored to its earnings. Pick your multiple. 20x, 50x, whatever number makes you feel smart. Beyond a point, you are simply prepaying many years of future revenue today, and there is a ceiling on how far that can credibly stretch.",
+          "A monetary asset has no such anchor. It is competing with gold, a market worth many trillions, or even with Bitcoin itself. Even reaching 5% or 10% of Bitcoin's valuation would be an enormous outcome.",
+          "In other words (IWO): revenue tokens get to be businesses. Monetary tokens get to be religions.",
+          "Religions price differently.",
+          "So my model is now just 2 questions:",
+          "Is it money?",
+          "Does it make money?",
+          "If the answer to both is no, then understand what you actually own. You do not own intrinsic value. You own speculative premium, and you are hoping the next person keeps believing.",
+          "Which, to be fair, has worked many, many times in this clown world.",
+          "Just know which game you are playing.",
+          "I wish you all well, frens.",
         ],
       },
     ],
@@ -1185,7 +1265,6 @@ const NotesApp = ({ noteId, view = "note" }: NotesTarget) => {
     setActiveNoteId(note.id);
     setMobileView("note");
   };
-
   return (
     <div className="notes-app" data-view={mobileView}>
       <aside className="notes-folders">
@@ -1249,23 +1328,30 @@ const NotesApp = ({ noteId, view = "note" }: NotesTarget) => {
           onClick={() => setMobileView("folders")}
         />
         <h3>{activeFolder.title}</h3>
-        {activeFolder.notes.map((note) => {
+        {activeFolder.notes.map((note, noteIndex) => {
           const isActive = note.id === activeNote.id;
+          const shouldShowSection =
+            note.section !== undefined &&
+            note.section !== activeFolder.notes[noteIndex - 1]?.section;
           return (
-            <button
-              key={note.id}
-              ref={isActive ? activeNoteRef : undefined}
-              type="button"
-              className={isActive ? "active" : undefined}
-              aria-current={isActive}
-              onClick={() => handleSelectNote(note)}
-            >
-              <b>{note.title}</b>
-              <span>
-                <em>{note.meta}</em>
-                {note.paragraphs[0]}
-              </span>
-            </button>
+            <Fragment key={note.id}>
+              {shouldShowSection ? (
+                <h4 className="notes-list-section">{note.section}</h4>
+              ) : null}
+              <button
+                ref={isActive ? activeNoteRef : undefined}
+                type="button"
+                className={isActive ? "active" : undefined}
+                aria-current={isActive}
+                onClick={() => handleSelectNote(note)}
+              >
+                <b>{note.title}</b>
+                <span>
+                  <em>{note.meta}</em>
+                  {note.paragraphs[0]}
+                </span>
+              </button>
+            </Fragment>
           );
         })}
         <HomeIndicatorSpacer />
@@ -1284,8 +1370,8 @@ const NotesApp = ({ noteId, view = "note" }: NotesTarget) => {
           />
         ) : null}
         <h2>{activeNote.title}</h2>
-        {activeNote.paragraphs.map((paragraph) => (
-          <p key={paragraph}>{paragraph}</p>
+        {activeNote.paragraphs.map((paragraph, paragraphIndex) => (
+          <p key={`${paragraphIndex}-${paragraph}`}>{paragraph}</p>
         ))}
         {activeNote.url ? (
           <a href={activeNote.url} target="_blank" rel="noreferrer">
