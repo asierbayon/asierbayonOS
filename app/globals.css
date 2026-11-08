@@ -4855,7 +4855,7 @@ body {
   align-items: flex-start;
   justify-content: space-between;
   gap: 6px;
-  margin: -4px -2px 0;
+  margin: -4px -2px 6px;
   padding: 4px 2px;
   border: 0;
   background: transparent;
@@ -4937,7 +4937,7 @@ body {
   align-items: flex-start;
   justify-content: space-between;
   gap: 6px;
-  margin: -4px -2px 0;
+  margin: -4px -2px 6px;
   padding: 4px 2px;
   border-radius: 14px;
   text-align: left;
