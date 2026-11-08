@@ -23,6 +23,12 @@ export const youtubeThumbnail = (videoId: string) =>
 
 export const playlist: readonly NowPlayingTrack[] = [
   {
+    videoId: "YXwYJyrKK5A",
+    title: "What You Know",
+    artist: "Two Door Cinema Club",
+    cover: appleCover("Music211/v4/e6/7f/61/e67f61ff-6231-1613-a2a9-aa7f7439457c/00892038002275_Cover.jpg"),
+  },
+  {
     videoId: "PMk8L9FNqnY",
     title: "Over My Dead Body",
     artist: "Drake",
