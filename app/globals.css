@@ -908,6 +908,14 @@ body {
 .notes-folders button.active {
   background: #dcd9d3;
 }
+.notes-list-section {
+  margin: 18px 10px 8px;
+  color: #898782;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
 .notes-list {
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -986,6 +994,9 @@ body {
   color: #3b3935;
   font-size: 15px;
   line-height: 1.7;
+}
+.notes-app article p + p {
+  margin-top: 16px;
 }
 .window-shell:has(.photos-app) .window-body {
   display: flex;
@@ -4032,6 +4043,10 @@ body {
     flex: none;
     color: rgba(60, 60, 67, 0.3);
   }
+  .notes-list-section {
+    margin: 22px 0 10px;
+    font-size: 13px;
+  }
   .notes-list {
     padding: 14px 22px 28px;
     border-right: 0;
@@ -4052,6 +4067,13 @@ body {
   }
   .notes-app article {
     padding: 14px 22px 32px;
+  }
+  .notes-app article p {
+    font-size: 16px;
+    line-height: 1.65;
+  }
+  .notes-app article p + p {
+    margin-top: 28px;
   }
   .notes-app article small {
     margin-top: 8px;
