@@ -537,6 +537,7 @@ const readCardFrame = (element: HTMLElement) =>
 // box is drawn. The radius is divided by the scale to stay visually constant.
 const applyCardFrame = (element: HTMLElement, frame: CardFrame) => {
   appliedFrames.set(element, frame);
+  element.dataset.cardFramed = "true";
   element.style.setProperty(
     "--mobile-transform",
     `translate(${frame.x}px, ${frame.y}px) scale(${frame.scale})`,
@@ -553,6 +554,7 @@ const stopFrameAnimation = (element: HTMLElement) => {
 const clearCardFrame = (element: HTMLElement) => {
   stopFrameAnimation(element);
   appliedFrames.delete(element);
+  delete element.dataset.cardFramed;
   element.style.removeProperty("--mobile-transform");
   element.style.removeProperty("--mobile-radius");
   element.style.removeProperty("--mobile-opacity");
