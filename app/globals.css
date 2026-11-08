@@ -3597,16 +3597,27 @@ body {
     overflow: hidden;
     overscroll-behavior: none;
   }
+  /* In-app browsers such as X's paint the page beneath their own bottom toolbar,
+     outside the layout viewport that .desktop fills. The wallpaper lives on a
+     fixed layer that overhangs the bottom edge so that area never shows bare. */
+  body::before {
+    content: "";
+    position: fixed;
+    z-index: -1;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: -160px;
+    pointer-events: none;
+    background:
+      linear-gradient(to bottom, rgba(0, 0, 0, 0.1), transparent 25%, rgba(0, 0, 0, 0.25)),
+      url("/asier/wallpaper.jpg") 51% center / cover no-repeat;
+  }
   .desktop {
-    background-position: 51% center;
+    background-image: none;
   }
   .desktop::after {
-    background: linear-gradient(
-      to bottom,
-      rgba(0, 0, 0, 0.1),
-      transparent 25%,
-      rgba(0, 0, 0, 0.25)
-    );
+    display: none;
   }
   .desktop-only {
     display: none !important;
