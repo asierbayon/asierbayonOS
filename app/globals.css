@@ -3601,7 +3601,9 @@ body {
      outside the layout viewport that .desktop fills. The wallpaper and open apps
      overhang the bottom edge so that area never shows bare. The clip stands in
      for overflow: hidden; the wallpaper stays inside .desktop so glass effects
-     still blur it. */
+     still blur it. The wallpaper keeps its viewport framing so the blurred home
+     screen behind the app switcher matches what is on screen; a mirrored copy
+     fills the overhang. */
   :root {
     --below-viewport: 160px;
   }
@@ -3610,11 +3612,19 @@ body {
     clip-path: inset(0 0 calc(-1 * var(--below-viewport)) 0);
     background-image: none;
   }
+  .desktop::before,
   .desktop::after {
-    bottom: calc(-1 * var(--below-viewport));
     background:
       linear-gradient(to bottom, rgba(0, 0, 0, 0.1), transparent 25%, rgba(0, 0, 0, 0.25)),
       url("/asier/wallpaper.jpg") 51% center / cover no-repeat;
+  }
+  .desktop::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    transform: translateY(100%) scaleY(-1);
   }
   .desktop-only {
     display: none !important;
