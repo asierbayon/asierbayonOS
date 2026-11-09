@@ -5145,13 +5145,63 @@ body {
     linear-gradient(180deg, transparent 48%, rgba(255, 255, 255, 0.14) 64%, transparent 78%),
     linear-gradient(180deg, transparent 70%, rgba(255, 255, 255, 0.24) 100%);
 }
+/* Each rain tile is exactly one loop of travel, slanted at the same 1:3 angle as its streaks. */
 .wx-rain {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='72'%3E%3Cg stroke='%23fff' stroke-width='1' stroke-linecap='round'%3E%3Cpath d='M10 4l-3 9' opacity='.35'/%3E%3Cpath d='M38 18l-3 9' opacity='.25'/%3E%3Cpath d='M58 6l-2.4 7' opacity='.3'/%3E%3Cpath d='M24 40l-3 9' opacity='.3'/%3E%3Cpath d='M50 50l-2.4 7' opacity='.22'/%3E%3Cpath d='M6 58l-2.4 7' opacity='.25'/%3E%3C/g%3E%3C/svg%3E");
+  --wx-rain-far: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='120'%3E%3Cdefs%3E%3ClinearGradient id='d' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23fff' stop-opacity='0'/%3E%3Cstop offset='1' stop-color='%23fff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cg stroke='url(%23d)' stroke-width='.8' stroke-linecap='round' fill='none'%3E%3Cpath d='M30 6l-3 9' opacity='.5'/%3E%3Cpath d='M12 34l-3 9' opacity='.35'/%3E%3Cpath d='M36 58l-3 9' opacity='.45'/%3E%3Cpath d='M20 84l-3 9' opacity='.3'/%3E%3Cpath d='M6 104l-3 9' opacity='.4'/%3E%3C/g%3E%3C/svg%3E");
+  background-image: var(--wx-rain-far);
+  animation: wx-rain-far 0.85s linear infinite;
   -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 22%, #000 100%);
   mask-image: linear-gradient(180deg, transparent 0%, #000 22%, #000 100%);
 }
+.wx-rain::before,
+.wx-rain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.wx-rain::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='180'%3E%3Cdefs%3E%3ClinearGradient id='d' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23fff' stop-opacity='0'/%3E%3Cstop offset='1' stop-color='%23fff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cg stroke='url(%23d)' stroke-width='1.2' stroke-linecap='round' fill='none'%3E%3Cpath d='M46 8l-5 15' opacity='.6'/%3E%3Cpath d='M20 62l-5 15' opacity='.45'/%3E%3Cpath d='M54 112l-5 15' opacity='.55'/%3E%3Cpath d='M30 150l-5 15' opacity='.4'/%3E%3C/g%3E%3C/svg%3E");
+  opacity: 0.8;
+  animation: wx-rain-near 0.5s linear infinite;
+}
+.wx-rain::after {
+  background: linear-gradient(180deg, transparent 62%, rgba(214, 228, 242, 0.12) 100%);
+}
 .wx-rain-heavy {
-  background-size: 44px 50px;
+  background-image: var(--wx-rain-far), var(--wx-rain-far);
+  animation: wx-rain-far-heavy 0.6s linear infinite;
+}
+.wx-rain-heavy::before {
+  opacity: 1;
+  animation-duration: 0.36s;
+}
+@keyframes wx-rain-far {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: -40px 120px;
+  }
+}
+@keyframes wx-rain-far-heavy {
+  from {
+    background-position:
+      0 0,
+      21px 57px;
+  }
+  to {
+    background-position:
+      -40px 120px,
+      -19px 177px;
+  }
+}
+@keyframes wx-rain-near {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: -60px 180px;
+  }
 }
 .wx-snow {
   background-image:
@@ -5160,7 +5210,9 @@ body {
   mask-image: linear-gradient(180deg, transparent 0%, #000 18%, #000 100%);
 }
 @media (prefers-reduced-motion: reduce) {
-  .wx-stars-twinkle {
+  .wx-stars-twinkle,
+  .wx-rain,
+  .wx-rain::before {
     animation: none;
   }
 }
