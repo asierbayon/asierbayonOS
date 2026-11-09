@@ -94,6 +94,12 @@ export const playlist: readonly NowPlayingTrack[] = [
     artist: "Jamiroquai",
     cover: appleCover("Music122/v4/81/ec/ef/81ecef00-2a0b-807b-154c-ff0e5fb90571/886443439115.jpg"),
   },
+  {
+    videoId: "n3nPiBai66M",
+    title: "Just Like Heaven",
+    artist: "The Cure",
+    cover: appleCover("Music/y2004/m11/d24/h19/s06.lkkhqoax.jpg"),
+  },
 ];
 
 const channelAvatar = (path: string) =>
