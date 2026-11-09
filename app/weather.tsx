@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 const ZURICH_NAME = "Zurich";
 const HOUR_COUNT = 6;
@@ -292,95 +292,258 @@ export const useZurichWeather = (isOffline: boolean) => {
   return { weather, status };
 };
 
-const CloudBlob = ({ scale = 1, x = 0, y = 0 }: { scale?: number; x?: number; y?: number }) => (
-  <g fill="currentColor" transform={`translate(${x} ${y}) scale(${scale})`}>
-    <ellipse cx="12" cy="15.2" rx="6.1" ry="3.05" />
-    <circle cx="8.5" cy="14.2" r="3.15" />
-    <circle cx="12.4" cy="12" r="3.7" />
-    <circle cx="15.8" cy="14.1" r="2.85" />
+const SUN_COLOR = "#ffd60a";
+const RAIN_COLOR = "#5ac8fa";
+const CUTOUT_WIDTH = 2.6;
+const RAY_ANGLES = [0, 45, 90, 135, 180, 225, 270, 315];
+const CLOUD_PATH =
+  "M7 18.5h10.5a4 4 0 0 0 .6-7.96A5.75 5.75 0 0 0 7.1 9.6a4.45 4.45 0 0 0-.1 8.9z";
+const MOON_PATH = "M10.21 5.04A8 8 0 1 0 18.96 13.79 6.5 6.5 0 0 1 10.21 5.04z";
+const BOLT_PATH = "M12.6 10.4 8.8 16.2h3l-1.2 6 5.4-7.8h-3.2l1.8-4z";
+const PRECIPITATION_CLOUD = "translate(1.2 -4.2) scale(0.9)";
+const PARTLY_CLOUD = "translate(-1 4.9) scale(0.82)";
+const PARTLY_MOON = "translate(9.1 0.4) scale(0.58)";
+
+type Streak = readonly [number, number, number, number];
+type Point = readonly [number, number];
+
+const DRIZZLE_STREAKS: Streak[] = [
+  [8.2, 14.8, 7.7, 16.1],
+  [12.2, 14.8, 11.7, 16.1],
+  [16.2, 14.8, 15.7, 16.1],
+  [10.2, 18.6, 9.7, 19.9],
+  [14.2, 18.6, 13.7, 19.9],
+];
+const RAIN_STREAKS: Streak[] = [
+  [8.4, 14.8, 6.8, 19.6],
+  [12.4, 14.8, 10.8, 19.6],
+  [16.4, 14.8, 14.8, 19.6],
+];
+const HEAVY_RAIN_STREAKS: Streak[] = [
+  [7.4, 14.6, 5.4, 20.8],
+  [10.9, 14.6, 8.9, 20.8],
+  [14.4, 14.6, 12.4, 20.8],
+  [17.9, 14.6, 15.9, 20.8],
+];
+const SLEET_STREAKS: Streak[] = [
+  [8.4, 14.8, 7, 19],
+  [16.4, 14.8, 15, 19],
+];
+const STORM_STREAKS: Streak[] = [
+  [6.4, 14.6, 5.4, 17.6],
+  [18.6, 14.6, 17.6, 17.6],
+];
+const SLEET_FLAKES: Point[] = [[12, 18.2]];
+const SNOW_FLAKES: Point[] = [
+  [7.8, 16.4],
+  [16.2, 16.4],
+  [12, 20],
+];
+
+const round = (value: number) => Number(value.toFixed(2));
+
+const Cloud = ({ transform }: { transform?: string }) => (
+  <path fill="currentColor" d={CLOUD_PATH} transform={transform} />
+);
+
+const Cutout = ({ d, transform }: { d: string; transform?: string }) => (
+  <path
+    d={d}
+    transform={transform}
+    fill="black"
+    stroke="black"
+    strokeWidth={CUTOUT_WIDTH}
+    strokeLinejoin="round"
+  />
+);
+
+type KnockoutProps = {
+  id: string;
+  cutout: ReactNode;
+  children: ReactNode;
+};
+
+const Knockout = ({ id, cutout, children }: KnockoutProps) => (
+  <>
+    <mask id={id} maskUnits="userSpaceOnUse" x="-4" y="-4" width="32" height="32">
+      <rect x="-4" y="-4" width="32" height="32" fill="white" />
+      {cutout}
+    </mask>
+    <g mask={`url(#${id})`}>{children}</g>
+  </>
+);
+
+type SunProps = {
+  cx: number;
+  cy: number;
+  radius: number;
+  rayStart: number;
+  rayEnd: number;
+  rayWidth: number;
+};
+
+const Sun = ({ cx, cy, radius, rayStart, rayEnd, rayWidth }: SunProps) => (
+  <g fill={SUN_COLOR} stroke={SUN_COLOR} strokeLinecap="round">
+    <circle cx={cx} cy={cy} r={radius} stroke="none" />
+    {RAY_ANGLES.map((angle) => {
+      const radians = (angle * Math.PI) / 180;
+      const cos = Math.cos(radians);
+      const sin = Math.sin(radians);
+      return (
+        <line
+          key={angle}
+          x1={round(cx + cos * rayStart)}
+          y1={round(cy + sin * rayStart)}
+          x2={round(cx + cos * rayEnd)}
+          y2={round(cy + sin * rayEnd)}
+          strokeWidth={rayWidth}
+        />
+      );
+    })}
   </g>
 );
 
-const GlyphShape = ({ scene }: { scene: Scene }) => {
-  if (scene === "sun") {
+const Sparkle = ({ cx, cy, size }: { cx: number; cy: number; size: number }) => (
+  <path
+    fill="currentColor"
+    d={`M${cx} ${cy - size}Q${cx} ${cy} ${cx + size} ${cy}Q${cx} ${cy} ${cx} ${cy + size}Q${cx} ${cy} ${cx - size} ${cy}Q${cx} ${cy} ${cx} ${cy - size}z`}
+  />
+);
+
+const Streaks = ({ streaks }: { streaks: Streak[] }) => (
+  <g stroke={RAIN_COLOR} strokeWidth="1.9" strokeLinecap="round">
+    {streaks.map(([x1, y1, x2, y2]) => (
+      <line key={`${x1}-${y1}`} x1={x1} y1={y1} x2={x2} y2={y2} />
+    ))}
+  </g>
+);
+
+const Flakes = ({ flakes }: { flakes: Point[] }) => (
+  <g stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+    {flakes.map(([cx, cy]) => (
+      <path
+        key={`${cx}-${cy}`}
+        d={`M${cx} ${round(cy - 1.8)}v3.6M${round(cx - 1.56)} ${round(cy - 0.9)}l3.12 1.8M${round(cx - 1.56)} ${round(cy + 0.9)}l3.12-1.8`}
+      />
+    ))}
+  </g>
+);
+
+const PrecipitationGlyph = ({ children }: { children: ReactNode }) => (
+  <>
+    <Cloud transform={PRECIPITATION_CLOUD} />
+    {children}
+  </>
+);
+
+const GlyphShape = ({ sky, isDay, maskId }: { sky: Sky; isDay: boolean; maskId: string }) => {
+  if (sky === "clear" && isDay) {
+    return <Sun cx={12} cy={12} radius={4.6} rayStart={7.4} rayEnd={9.7} rayWidth={2} />;
+  }
+  if (sky === "clear") {
     return (
       <>
-        <circle cx="12" cy="12" r="3.6" fill="currentColor" />
-        <g fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round">
-          <path d="M12 2.8v2.2M12 19v2.2M2.8 12h2.2M19 12h2.2" />
-          <path d="m5.2 5.2 1.6 1.6M17.2 17.2l1.6 1.6M18.8 5.2l-1.6 1.6M6.8 17.2 5.2 18.8" />
-        </g>
+        <path fill="currentColor" d={MOON_PATH} />
+        <Sparkle cx={17.6} cy={4.6} size={2.4} />
+        <Sparkle cx={21} cy={10.2} size={1.5} />
       </>
     );
   }
-  if (scene === "night") {
-    return <path fill="currentColor" d="M14.2 3.4a6.9 6.9 0 1 0 5.2 11.4A5.7 5.7 0 0 1 14.2 3.4z" />;
-  }
-  if (scene === "partly-day") {
+  if ((sky === "partly" || sky === "mostly-clear") && isDay) {
     return (
       <>
-        <circle cx="16.4" cy="6.2" r="2.5" fill="currentColor" />
-        <g fill="none" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round">
-          <path d="M16.4 1.8v1.2M16.4 9.2v1.1M12.2 6.2h1.2M19.4 6.2h1.2" />
-        </g>
-        <CloudBlob scale={0.78} x={1.2} y={4.2} />
+        <Knockout id={maskId} cutout={<Cutout d={CLOUD_PATH} transform={PARTLY_CLOUD} />}>
+          <Sun cx={15.4} cy={8.4} radius={3.3} rayStart={5.3} rayEnd={6.9} rayWidth={1.6} />
+        </Knockout>
+        <Cloud transform={PARTLY_CLOUD} />
       </>
     );
   }
-  if (scene === "partly-night") {
+  if (sky === "partly" || sky === "mostly-clear") {
     return (
       <>
-        <path fill="currentColor" d="M8.4 1.8a3.8 3.8 0 1 0 2.8 6.4 3.1 3.1 0 0 1-2.8-6.4z" />
-        <CloudBlob scale={0.74} x={3.4} y={4.6} />
+        <Knockout id={maskId} cutout={<Cutout d={CLOUD_PATH} transform={PARTLY_CLOUD} />}>
+          <path fill="currentColor" d={MOON_PATH} transform={PARTLY_MOON} />
+        </Knockout>
+        <Cloud transform={PARTLY_CLOUD} />
       </>
     );
   }
-  if (scene === "fog") {
+  if (sky === "fog") {
     return (
-      <g fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-        <path d="M4 8h16M6.5 12h11M4 16h16M7.5 20h9" />
-      </g>
+      <PrecipitationGlyph>
+        <path
+          d="M4.5 15.6h15M7 19.6h10"
+          stroke="currentColor"
+          strokeWidth="1.9"
+          strokeLinecap="round"
+        />
+      </PrecipitationGlyph>
     );
   }
-  if (scene === "rain") {
+  if (sky === "drizzle") {
+    return (
+      <PrecipitationGlyph>
+        <Streaks streaks={DRIZZLE_STREAKS} />
+      </PrecipitationGlyph>
+    );
+  }
+  if (sky === "rain") {
+    return (
+      <PrecipitationGlyph>
+        <Streaks streaks={RAIN_STREAKS} />
+      </PrecipitationGlyph>
+    );
+  }
+  if (sky === "heavy-rain") {
+    return (
+      <PrecipitationGlyph>
+        <Streaks streaks={HEAVY_RAIN_STREAKS} />
+      </PrecipitationGlyph>
+    );
+  }
+  if (sky === "freezing-rain") {
+    return (
+      <PrecipitationGlyph>
+        <Streaks streaks={SLEET_STREAKS} />
+        <Flakes flakes={SLEET_FLAKES} />
+      </PrecipitationGlyph>
+    );
+  }
+  if (sky === "snow") {
+    return (
+      <PrecipitationGlyph>
+        <Flakes flakes={SNOW_FLAKES} />
+      </PrecipitationGlyph>
+    );
+  }
+  if (sky === "thunder") {
     return (
       <>
-        <CloudBlob scale={0.82} y={-1.2} />
-        <g fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-          <path d="M8.2 18.6v2.2M12 19.2v2.2M15.8 18.6v2.2" />
-        </g>
+        <Knockout id={maskId} cutout={<Cutout d={BOLT_PATH} />}>
+          <Cloud transform={PRECIPITATION_CLOUD} />
+          <Streaks streaks={STORM_STREAKS} />
+        </Knockout>
+        <path
+          d={BOLT_PATH}
+          fill={SUN_COLOR}
+          stroke={SUN_COLOR}
+          strokeWidth="0.6"
+          strokeLinejoin="round"
+        />
       </>
     );
   }
-  if (scene === "snow") {
-    return (
-      <>
-        <CloudBlob scale={0.82} y={-1.2} />
-        <g fill="currentColor">
-          <circle cx="8.4" cy="19.4" r="1.05" />
-          <circle cx="12" cy="20.8" r="1.05" />
-          <circle cx="15.6" cy="19.4" r="1.05" />
-        </g>
-      </>
-    );
-  }
-  if (scene === "storm") {
-    return (
-      <>
-        <CloudBlob scale={0.82} y={-1.6} />
-        <path fill="currentColor" d="M13.2 12.6 8.8 18h3.2l-1.5 4.8 5.2-6.2h-3.1l2.6-4z" />
-      </>
-    );
-  }
-  return <CloudBlob />;
+  return <Cloud />;
 };
 
 export const WeatherGlyph = ({ code, isDay }: { code: number | null; isDay: boolean }) => {
-  const scene = code === null ? "cloud" : sceneFor(skyFromCode(code), isDay);
+  const maskId = `wx-mask-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
+  const sky = code === null ? "cloudy" : skyFromCode(code);
   const className = code === null ? "wx-glyph wx-glyph-empty" : "wx-glyph";
   return (
     <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
-      <GlyphShape scene={scene} />
+      <GlyphShape sky={sky} isDay={isDay} maskId={maskId} />
     </svg>
   );
 };
