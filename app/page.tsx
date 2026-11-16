@@ -37,6 +37,7 @@ import YouTubeApp from "./youtube";
 import { useYouTubeConnection, YouTubeStartupError } from "./use-youtube-connection";
 import ChatGPTApp from "./chatgpt";
 import StartupScreen from "./startup-screen";
+import { readStoredValue, writeStoredValue } from "./storage";
 import {
   useOfflinePlayback,
   useYouTubeOfflinePlayback,
@@ -4312,7 +4313,7 @@ const defaultDesktopPositions = createDefaultDesktopPositions(
 
 const readDesktopPositions = (fallback: Record<string, IconPosition>) => {
   try {
-    const raw = localStorage.getItem(DESKTOP_POSITIONS_KEY);
+    const raw = readStoredValue(DESKTOP_POSITIONS_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Record<string, Partial<IconPosition>>;
     const next: Record<string, IconPosition> = { ...fallback };
@@ -4654,7 +4655,7 @@ const isSavedMark = (value: unknown): value is Mark => {
 
 const readSavedMarks = (storageKey: string): Mark[] => {
   try {
-    const raw = localStorage.getItem(storageKey);
+    const raw = readStoredValue(storageKey);
     if (!raw) {
       return [];
     }
@@ -5203,7 +5204,7 @@ const ImageWindow = ({
   };
   const handleSave = () => {
     const nextMarks = withoutEmptyText(marks);
-    localStorage.setItem(meme.markupStorageKey, JSON.stringify(nextMarks));
+    writeStoredValue(meme.markupStorageKey, JSON.stringify(nextMarks));
     setSavedMarks(nextMarks);
     onClose();
   };
@@ -6718,21 +6719,18 @@ export default function Home() {
         : defaultDesktopPositions;
     const stored = readDesktopPositions(fallback);
     const hasSquareLayout =
-      localStorage.getItem(SPOTIFY_WIDGET_LAYOUT_KEY) === SPOTIFY_WIDGET_LAYOUT;
+      readStoredValue(SPOTIFY_WIDGET_LAYOUT_KEY) === SPOTIFY_WIDGET_LAYOUT;
     if (stored && !hasSquareLayout) {
       stored["spotify-widget"] = fallback["spotify-widget"];
     }
-    localStorage.setItem(SPOTIFY_WIDGET_LAYOUT_KEY, SPOTIFY_WIDGET_LAYOUT);
+    writeStoredValue(SPOTIFY_WIDGET_LAYOUT_KEY, SPOTIFY_WIDGET_LAYOUT);
     setSavedIconPositions(stored);
     setIconPositionsReady(true);
   }, []);
 
   useEffect(() => {
     if (!savedIconPositions) return;
-    localStorage.setItem(
-      DESKTOP_POSITIONS_KEY,
-      JSON.stringify(savedIconPositions),
-    );
+    writeStoredValue(DESKTOP_POSITIONS_KEY, JSON.stringify(savedIconPositions));
   }, [savedIconPositions]);
 
   const handleOpenProjectsFolder = () => {
