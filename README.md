@@ -1,33 +1,30 @@
-# vinext-starter
+# asierbayon.com
 
-A site running on [vinext](https://github.com/cloudflare/vinext).
+My personal site, built as a macOS-style desktop that turns into an iPhone home screen on mobile.
 
-## Prerequisites
+![Desktop](docs/screenshots/desktop.jpg)
 
-- Node.js `>=22.13.0`
+<p>
+  <img src="docs/screenshots/notes.jpg" alt="Notes" width="49%" />
+  <img src="docs/screenshots/projects.jpg" alt="Projects" width="49%" />
+  <img src="docs/screenshots/photos.jpg" alt="Photos" width="49%" />
+  <img src="docs/screenshots/weather.jpg" alt="Weather" width="49%" />
+  <img src="docs/screenshots/spotify.jpg" alt="Spotify" width="49%" />
+  <img src="docs/screenshots/youtube.jpg" alt="YouTube" width="49%" />
+  <img src="docs/screenshots/instagram.jpg" alt="Instagram" width="49%" />
+  <img src="docs/screenshots/control-center.jpg" alt="Control Center" width="49%" />
+</p>
 
-## Quick Start
+<p>
+  <img src="docs/screenshots/mobile-home.jpg" alt="Mobile home screen" width="240" />
+  <img src="docs/screenshots/mobile-photos.jpg" alt="Mobile Photos" width="240" />
+</p>
+
+## Development
+
+Requires Node.js `>=22.13.0`.
 
 ```bash
 npm install
 npm run dev
-npm run build
 ```
-
-This starter does not use `wrangler.jsonc`.
-
-## Included Shape
-
-- edit site code under `app/`
-- `.openai/hosting.json` declares optional Sites D1 and R2 bindings
-- `vite.config.ts` simulates declared bindings for local development
-
-## Useful Commands
-
-- `npm run dev`: start local development
-- `npm run build`: verify the vinext build output
-- `npm test`: build the site
-
-## Learn More
-
-- [vinext Documentation](https://github.com/cloudflare/vinext)
