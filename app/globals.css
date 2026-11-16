@@ -850,6 +850,81 @@ body {
 .dark-window .window-body {
   background: #101010;
 }
+.window-crash {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 32px 24px;
+  color: #2b2a28;
+  background: #f8f7f4;
+  text-align: center;
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "SF Pro Text",
+    "Segoe UI",
+    sans-serif;
+}
+.dark-window .window-crash {
+  color: #ededed;
+  background: #101010;
+}
+.app-crash-glyph {
+  width: 44px;
+  height: 44px;
+  fill: #f5b82e;
+}
+.app-crash-glyph-mark {
+  fill: #3a2a05;
+}
+.window-crash .app-crash-glyph {
+  margin-bottom: 6px;
+}
+.window-crash-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.window-crash-detail {
+  margin: 0;
+  max-width: 280px;
+  font-size: 12px;
+  opacity: 0.68;
+}
+.window-crash-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+.window-crash-actions button {
+  min-width: 88px;
+  padding: 6px 16px;
+  border: 0;
+  border-radius: 7px;
+  color: #1d1d1f;
+  background: rgba(0, 0, 0, 0.08);
+  font-size: 13px;
+  cursor: pointer;
+}
+.dark-window .window-crash-actions button {
+  color: #ededed;
+  background: rgba(255, 255, 255, 0.14);
+}
+.window-crash-actions .window-crash-primary,
+.dark-window .window-crash-actions .window-crash-primary {
+  color: #fff;
+  background: #0a7cff;
+}
+.window-crash-actions button:hover {
+  filter: brightness(0.94);
+}
+.window-crash-actions button:focus-visible {
+  outline: 2px solid #0a7cff;
+  outline-offset: 2px;
+}
 .window-shell:has(.notes-app) .window-body {
   overflow: hidden;
 }
@@ -4863,6 +4938,46 @@ body {
     0 18px 40px rgba(0, 0, 0, 0.28),
     0 2px 8px rgba(0, 0, 0, 0.18);
   user-select: none;
+}
+.widget-crash {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px;
+  color: #fff;
+  background: #1c1c1e;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  text-shadow: none;
+}
+.widget-crash p {
+  margin: 0;
+}
+.widget-crash .app-crash-glyph {
+  width: 28px;
+  height: 28px;
+}
+.widget-crash button {
+  display: block;
+  align-self: center;
+  width: auto;
+  max-width: none;
+  padding: 5px 14px;
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.18);
+  font-size: 12px;
+  line-height: normal;
+  text-shadow: none;
+  cursor: pointer;
+}
+.widget-crash button:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
 }
 .sp-widget-desktop .sp-widget-open {
   flex: 1;

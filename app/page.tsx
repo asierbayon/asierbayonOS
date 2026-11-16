@@ -38,6 +38,12 @@ import { useYouTubeConnection, YouTubeStartupError } from "./use-youtube-connect
 import ChatGPTApp from "./chatgpt";
 import StartupScreen from "./startup-screen";
 import {
+  ErrorBoundary,
+  WidgetErrorBoundary,
+  WindowCrash,
+  WindowErrorBoundary,
+} from "./window-error-boundary";
+import {
   useOfflinePlayback,
   useYouTubeOfflinePlayback,
   YouTubePlaybackOverlay,
@@ -1064,7 +1070,11 @@ function WindowShell({
         />
         <strong>{title}</strong>
       </div>
-      <div className="window-body">{children}</div>
+      <div className="window-body">
+        <WindowErrorBoundary appName={title} onClose={onClose}>
+          {children}
+        </WindowErrorBoundary>
+      </div>
       {RESIZE_EDGES.map((edge) => (
         <div
           key={edge}
@@ -7079,7 +7089,9 @@ export default function Home() {
           onMove={(position) => handleMoveIcon("weather-widget", position)}
           onOpen={openWeather}
         >
-          <WeatherWidget variant="desktop" weather={zurichWeather} status={weatherStatus} />
+          <WidgetErrorBoundary name="Weather" className="wx wx-desktop desktop-only">
+            <WeatherWidget variant="desktop" weather={zurichWeather} status={weatherStatus} />
+          </WidgetErrorBoundary>
         </DesktopWidget>
         <DesktopWidget
           position={iconPositions["spotify-widget"]}
@@ -7088,7 +7100,9 @@ export default function Home() {
           label="Spotify widget. Press Enter to open Spotify. Drag or use arrow keys to move."
           className="desktop-widget-square"
         >
-          <SpotifyWidget player={spotify} variant="desktop" onOpen={openSpotify} />
+          <WidgetErrorBoundary name="Spotify" className="sp-widget sp-widget-desktop">
+            <SpotifyWidget player={spotify} variant="desktop" onOpen={openSpotify} />
+          </WidgetErrorBoundary>
         </DesktopWidget>
       </div>
 
@@ -7101,13 +7115,17 @@ export default function Home() {
       <MobileHomePages
         pages={[
           <Fragment key="main">
-            <WeatherWidget
-              variant="mobile"
-              weather={zurichWeather}
-              status={weatherStatus}
-              onOpen={openWeather}
-            />
-            <SpotifyWidget player={spotify} variant="mobile" onOpen={openSpotify} />
+            <WidgetErrorBoundary name="Weather" className="wx wx-mobile">
+              <WeatherWidget
+                variant="mobile"
+                weather={zurichWeather}
+                status={weatherStatus}
+                onOpen={openWeather}
+              />
+            </WidgetErrorBoundary>
+            <WidgetErrorBoundary name="Spotify" className="sp-widget">
+              <SpotifyWidget player={spotify} variant="mobile" onOpen={openSpotify} />
+            </WidgetErrorBoundary>
             <MobilePhotoWidget onOpen={handleOpenMemeImage} />
             <MobileFolderLauncher
               label="Projects"
@@ -7160,10 +7178,20 @@ export default function Home() {
           onMinimize: () => minimizeWindow(window.id),
         };
         const onClose = () => closeWindow(window.id);
+        const { label, variant } = describeMinimizedWindow(window);
+        const renderCrashedWindow = (reset: () => void) => (
+          <WindowShell title={label} variant={variant} onClose={onClose} {...stackProps}>
+            <WindowCrash appName={label} onClose={onClose} onReopen={reset} />
+          </WindowShell>
+        );
+        const guardWindow = (content: ReactNode) => (
+          <ErrorBoundary key={window.id} renderFallback={renderCrashedWindow}>
+            {content}
+          </ErrorBoundary>
+        );
         if (window.content.kind === "notes")
-          return (
+          return guardWindow(
             <NotesWindow
-              key={window.id}
               noteId={window.content.noteId}
               view={window.content.view}
               onClose={onClose}
@@ -7171,45 +7199,40 @@ export default function Home() {
             />
           );
         if (window.content.kind === "app")
-          return (
+          return guardWindow(
             <AppWindow
-              key={window.id}
               app={window.content.app}
               onClose={onClose}
               {...stackProps}
             />
           );
         if (window.content.kind === "folder")
-          return (
+          return guardWindow(
             <FolderWindow
-              key={window.id}
               onClose={onClose}
               onOpenVideo={openVideo}
               {...stackProps}
             />
           );
         if (window.content.kind === "image")
-          return (
+          return guardWindow(
             <ImageWindow
-              key={window.id}
               meme={findMemeImage(window.content.memeId)}
               onClose={onClose}
               {...stackProps}
             />
           );
         if (window.content.kind === "spotify")
-          return (
+          return guardWindow(
             <SpotifyWindow
-              key={window.id}
               onClose={onClose}
               player={spotify}
               {...stackProps}
             />
           );
         if (window.content.kind === "weather")
-          return (
+          return guardWindow(
             <WindowShell
-              key={window.id}
               title="Weather"
               onClose={onClose}
               variant="dark"
@@ -7219,9 +7242,8 @@ export default function Home() {
             </WindowShell>
           );
         if (window.content.kind === "youtube")
-          return (
+          return guardWindow(
             <WindowShell
-              key={window.id}
               title="YouTube"
               onClose={onClose}
               variant="dark"
@@ -7246,9 +7268,8 @@ export default function Home() {
               />
             </WindowShell>
           );
-        return (
+        return guardWindow(
           <VideoWindow
-            key={window.id}
             onClose={onClose}
             volume={volume}
             isOffline={isOffline}
