@@ -29,9 +29,9 @@ export function sites(): Plugin {
       const hostingConfig = resolve(root, ".openai", "hosting.json");
 
       await rm(outputDirectory, { recursive: true, force: true });
-      await mkdir(outputDirectory, { recursive: true });
 
       if (await exists(hostingConfig)) {
+        await mkdir(outputDirectory, { recursive: true });
         await cp(hostingConfig, resolve(outputDirectory, "hosting.json"));
       }
     },

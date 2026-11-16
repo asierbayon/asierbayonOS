@@ -28,3 +28,10 @@ Requires Node.js `>=22.13.0`.
 npm install
 npm run dev
 ```
+
+Local development and builds do not require a hosting account. Optional Sites
+deployment metadata belongs in `.openai/hosting.json`, which is ignored by Git.
+
+## License
+
+[WTFPL](LICENSE). Do whatever the fuck you want with the code.
