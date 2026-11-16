@@ -5910,6 +5910,7 @@ const MobileAppSwitcher = ({
   const exitAnimationRef = useRef<AnimationPlaybackControls | null>(null);
   const gestureRef = useRef<SwitcherGesture | null>(null);
   const isExitingRef = useRef(false);
+  const focusedCardRef = useRef<{ element: HTMLElement; restingZ: string } | null>(null);
   const [isExiting, setIsExiting] = useState(false);
   const cardKey = cards.map((card) => card.id).join(",");
   const previousCardKeyRef = useRef(cardKey);
@@ -6037,7 +6038,10 @@ const MobileAppSwitcher = ({
   const openCard = (windowId: number) => {
     if (isExitingRef.current) return;
     const element = findWindowElement(windowId);
-    if (element) element.style.zIndex = String(SWITCHER_FOCUS_Z);
+    if (element) {
+      focusedCardRef.current = { element, restingZ: element.style.zIndex };
+      element.style.zIndex = String(SWITCHER_FOCUS_Z);
+    }
     const targets = new Map([[windowId, FULL_FRAME]]);
     animateCardsTo(targets, SWITCHER_OPEN_DURATION * motionScale, () =>
       onOpenWindow(windowId),
@@ -6176,6 +6180,10 @@ const MobileAppSwitcher = ({
         const element = findWindowElement(card.id);
         if (element) clearCardFrame(element);
       });
+      const focused = focusedCardRef.current;
+      if (focused?.element.style.zIndex === String(SWITCHER_FOCUS_Z)) {
+        focused.element.style.zIndex = focused.restingZ;
+      }
     };
   }, []);
 
@@ -6404,6 +6412,32 @@ const findForegroundWindow = (windows: OpenWindow[]) =>
 const byMostRecent = (first: OpenWindow, second: OpenWindow) =>
   second.zIndex - first.zIndex;
 
+// Windows share a stacking context with the dock, menu bar and mobile chrome,
+// so their z-indexes stay a dense band starting here, however often they are focused.
+const WINDOW_BASE_Z = 30;
+
+const stackWindows = (windows: OpenWindow[], frontId: number | null) => {
+  const front = windows.find((item) => item.id === frontId);
+  const order = windows
+    .filter((item) => item !== front)
+    .sort((first, second) => first.zIndex - second.zIndex);
+  if (front) order.push(front);
+  return windows.map((item) => {
+    const zIndex = WINDOW_BASE_Z + order.indexOf(item);
+    return zIndex === item.zIndex ? item : { ...item, zIndex };
+  });
+};
+
+const raiseWindow = (windows: OpenWindow[], id: number) => {
+  const target = windows.find((item) => item.id === id);
+  if (!target) return windows;
+  const isFront = windows.every((item) => item.zIndex <= target.zIndex);
+  if (isFront && target.minimizedAt === null) return windows;
+  return stackWindows(windows, id).map((item) =>
+    item.id === id && item.minimizedAt !== null ? { ...item, minimizedAt: null } : item,
+  );
+};
+
 type SwitcherSession = { entryId: number | null };
 
 type MenuBarPanelId = "wifi" | "battery" | "controlCenter";
@@ -6592,7 +6626,6 @@ export default function Home() {
     onReleasePlayback: () => releaseAudible("spotify"),
   });
   const nextWindowId = useRef(1);
-  const nextWindowZ = useRef(30);
   const nextMinimizeOrder = useRef(1);
   const reduceMotion = useReducedMotion();
   const [switcher, setSwitcher] = useState<SwitcherSession | null>(null);
@@ -6607,18 +6640,22 @@ export default function Home() {
   const addWindow = (content: WindowState) => {
     const id = nextWindowId.current++;
     const cascade = (id - 1) % 6;
-    const zIndex = nextWindowZ.current++;
-    setOpenWindows((current) => [
-      ...current,
-      {
+    setOpenWindows((current) =>
+      stackWindows(
+        [
+          ...current,
+          {
+            id,
+            content,
+            offsetX: cascade * 22,
+            offsetY: cascade * 18,
+            zIndex: WINDOW_BASE_Z + current.length,
+            minimizedAt: null,
+          },
+        ],
         id,
-        content,
-        offsetX: cascade * 22,
-        offsetY: cascade * 18,
-        zIndex,
-        minimizedAt: null,
-      },
-    ]);
+      ),
+    );
   };
   const closeWindow = (id: number) => {
     setOpenWindows((current) => current.filter((item) => item.id !== id));
@@ -6629,17 +6666,15 @@ export default function Home() {
     );
   };
   const focusWindow = (id: number) => {
-    const zIndex = nextWindowZ.current++;
-    updateWindow(id, { zIndex, minimizedAt: null });
+    setOpenWindows((current) => raiseWindow(current, id));
   };
   const minimizeWindow = (id: number) => {
     updateWindow(id, { minimizedAt: nextMinimizeOrder.current++ });
   };
   const showOnlyWindow = (id: number | null) => {
-    const zIndex = nextWindowZ.current++;
     setOpenWindows((current) =>
-      current.map((item) => {
-        if (item.id === id) return { ...item, zIndex, minimizedAt: null };
+      stackWindows(current, id).map((item) => {
+        if (item.id === id) return { ...item, minimizedAt: null };
         if (item.minimizedAt !== null) return item;
         return { ...item, minimizedAt: nextMinimizeOrder.current++ };
       }),
@@ -6683,12 +6718,8 @@ export default function Home() {
       addWindow({ kind: "notes", ...target });
       return;
     }
-    const zIndex = nextWindowZ.current++;
-    updateWindow(notesWindow.id, {
-      zIndex,
-      minimizedAt: null,
-      content: { kind: "notes", ...target },
-    });
+    updateWindow(notesWindow.id, { content: { kind: "notes", ...target } });
+    focusWindow(notesWindow.id);
   };
 
   useLayoutEffect(() => {
@@ -6764,26 +6795,23 @@ export default function Home() {
     }
     const id = nextWindowId.current++;
     const cascade = (id - 1) % 6;
-    const zIndex = nextWindowZ.current++;
     setOpenWindows((current) => {
       const alreadyOpen = current.find((item) => item.content.kind === "video");
-      if (!alreadyOpen) {
-        return [
+      if (alreadyOpen) return raiseWindow(current, alreadyOpen.id);
+      return stackWindows(
+        [
           ...current,
           {
             id,
             content: { kind: "video" },
             offsetX: cascade * 22,
             offsetY: cascade * 18,
-            zIndex,
+            zIndex: WINDOW_BASE_Z + current.length,
             minimizedAt: null,
           },
-        ];
-      }
-      return current.map((item) => {
-        if (item.id !== alreadyOpen.id) return item;
-        return { ...item, zIndex: nextWindowZ.current++, minimizedAt: null };
-      });
+        ],
+        id,
+      );
     });
   };
   const openSpotify = () => {
