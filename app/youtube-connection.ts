@@ -15,7 +15,6 @@ export function connectYouTubePlayer(
   let stopped = false;
   let reloads = 0;
   let elapsed = 0;
-  let interval: number | undefined;
 
   const stop = () => {
     stopped = true;
@@ -43,7 +42,7 @@ export function connectYouTubePlayer(
 
   window.addEventListener("message", handleMessage);
   iframe.addEventListener("load", handshake);
-  interval = window.setInterval(() => {
+  const interval = window.setInterval(() => {
     // Don't consume retries while the browser knows it has no connection.
     if (!navigator.onLine) return;
     elapsed += HANDSHAKE_INTERVAL_MS;

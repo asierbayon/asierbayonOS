@@ -244,30 +244,21 @@ const PlaylistCard = ({ playlist, variant, onSelect }: PlaylistCardProps) => {
   );
 };
 
-const renderFeedCard = (
-  item: YouTubeFeedItem,
-  variant: CardVariant,
-  onSelect: (videoId: string) => void,
-) => {
+type FeedCardProps = {
+  item: YouTubeFeedItem;
+  variant: CardVariant;
+  onSelect: (videoId: string) => void;
+};
+
+const feedItemKey = (item: YouTubeFeedItem) =>
+  item.kind === "video" ? item.video.videoId : item.playlist.id;
+
+const FeedCard = ({ item, variant, onSelect }: FeedCardProps) => {
   if (item.kind === "video") {
-    return (
-      <VideoCard
-        key={item.video.videoId}
-        video={item.video}
-        variant={variant}
-        onSelect={onSelect}
-      />
-    );
+    return <VideoCard video={item.video} variant={variant} onSelect={onSelect} />;
   }
 
-  return (
-    <PlaylistCard
-      key={item.playlist.id}
-      playlist={item.playlist}
-      variant={variant}
-      onSelect={onSelect}
-    />
-  );
+  return <PlaylistCard playlist={item.playlist} variant={variant} onSelect={onSelect} />;
 };
 
 type PlaylistPanelProps = {
@@ -580,7 +571,9 @@ export default function YouTubeApp({
           ))}
         </div>
         <div className="yt-grid">
-          {feedResults.map((item) => renderFeedCard(item, "grid", watchVideo))}
+          {feedResults.map((item) => (
+            <FeedCard key={feedItemKey(item)} item={item} variant="grid" onSelect={watchVideo} />
+          ))}
         </div>
       </>
     );
@@ -598,7 +591,9 @@ export default function YouTubeApp({
             onSelect={watchVideo}
           />
         ) : null}
-        {feedAfter(video.videoId).map((item) => renderFeedCard(item, "compact", watchVideo))}
+        {feedAfter(video.videoId).map((item) => (
+          <FeedCard key={feedItemKey(item)} item={item} variant="compact" onSelect={watchVideo} />
+        ))}
       </>
     );
   };

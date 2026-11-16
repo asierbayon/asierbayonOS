@@ -272,13 +272,32 @@ type WindowStackProps = {
   onMinimize: () => void;
 };
 
+const clockListeners = new Set<() => void>();
+let clockNow: Date | null = null;
+let clockTimer: number | undefined;
+
+const subscribeToClock = (listener: () => void) => {
+  clockListeners.add(listener);
+  if (clockListeners.size === 1) {
+    clockNow = new Date();
+    clockTimer = window.setInterval(() => {
+      clockNow = new Date();
+      clockListeners.forEach((notify) => notify());
+    }, 30_000);
+  }
+  return () => {
+    clockListeners.delete(listener);
+    if (clockListeners.size > 0) return;
+    window.clearInterval(clockTimer);
+    clockNow = null;
+  };
+};
+
+const getClockSnapshot = () => (clockNow ??= new Date());
+const getServerClockSnapshot = () => null;
+
 function Clock({ compact = false }: { compact?: boolean }) {
-  const [now, setNow] = useState<Date | null>(null);
-  useEffect(() => {
-    setNow(new Date());
-    const timer = window.setInterval(() => setNow(new Date()), 30_000);
-    return () => window.clearInterval(timer);
-  }, []);
+  const now = useSyncExternalStore(subscribeToClock, getClockSnapshot, getServerClockSnapshot);
   if (!now) return <span>{compact ? "14:08" : "Wed 14:08"}</span>;
   const time = now.toLocaleTimeString([], {
     hour: "2-digit",
@@ -2342,11 +2361,7 @@ const useSpotifyPlayer = ({
   const playerStateRef = useRef<number>(YOUTUBE_STATE.unstarted);
   const trackIndexRef = useRef(0);
   const loadedVideoIdRef = useRef(spotifyPlaylist[0].videoId);
-  const progressStoreRef = useRef<TrackProgressStore | null>(null);
-  if (progressStoreRef.current === null) {
-    progressStoreRef.current = createTrackProgressStore();
-  }
-  const progressStore = progressStoreRef.current;
+  const [progressStore] = useState(createTrackProgressStore);
   const [isReady, setIsReady] = useState(false);
   const [trackIndex, setTrackIndex] = useState(0);
   const [playerState, setPlayerState] = useState<number>(YOUTUBE_STATE.unstarted);
@@ -2359,7 +2374,9 @@ const useSpotifyPlayer = ({
     wantsPlaybackRef.current = next;
   };
 
-  isInterruptedRef.current = isInterrupted;
+  useLayoutEffect(() => {
+    isInterruptedRef.current = isInterrupted;
+  }, [isInterrupted]);
 
   useEffect(() => {
     volumeRef.current = volume;
