@@ -31,8 +31,6 @@ type LibraryView = "years" | "months" | "all";
 type PhotoGroup = { key: string; label: string; photos: Photo[] };
 type Collection = { id: CollectionId; label: string; icon: PhotosIconName };
 
-// Instagram omits the year on posts from the current year.
-const UNDATED_POST_YEAR = 2026;
 const MONTH_NAMES = [
   "January",
   "February",
@@ -51,15 +49,39 @@ const ZOOM_COLUMNS = [9, 7, 5, 4, 3];
 const DEFAULT_ZOOM_LEVEL = 2;
 const INITIAL_FAVORITE_IDS = ["eclipse", "larches", "matterhorn-sunrise", "kirkjufell"];
 
+const TAKEN_AT_PATTERN = new RegExp(`^(${MONTH_NAMES.join("|")}) (\\d{1,2})(?:, (\\d{4}))?$`);
+
 const parseTakenAt = (date: string) => {
-  const [monthAndDay, year = String(UNDATED_POST_YEAR)] = date.split(", ");
-  const [monthName, day] = monthAndDay.split(" ");
-  return new Date(Number(year), MONTH_NAMES.indexOf(monthName), Number(day));
+  const match = TAKEN_AT_PATTERN.exec(date);
+  const monthName = match?.[1];
+  const dayText = match?.[2];
+  if (!monthName || !dayText) return null;
+  const month = MONTH_NAMES.indexOf(monthName);
+  const day = Number(dayText);
+  const year = match[3] ? Number(match[3]) : new Date().getFullYear();
+  const takenAt = new Date(year, month, day);
+  if (
+    takenAt.getFullYear() !== year ||
+    takenAt.getMonth() !== month ||
+    takenAt.getDate() !== day
+  ) {
+    return null;
+  }
+  return takenAt;
 };
 
-const photos: Photo[] = posts
-  .map((post) => ({ ...post, takenAt: parseTakenAt(post.date) }))
-  .sort((first, second) => first.takenAt.getTime() - second.takenAt.getTime());
+const photos: Photo[] = posts.flatMap((post) => {
+  const takenAt = parseTakenAt(post.date);
+  if (!takenAt) return [];
+  return [{ ...post, takenAt }];
+}).sort((first, second) => first.takenAt.getTime() - second.takenAt.getTime());
+
+const postIds = new Set(posts.map((post) => post.id));
+const requirePhotoIds = (ids: readonly string[]) => {
+  ids.forEach((id) => {
+    if (!postIds.has(id)) throw new Error(`Unknown photo id: ${id}`);
+  });
+};
 
 const albumPhotoIds: Record<Exclude<CollectionId, "library" | "favorites">, string[]> = {
   switzerland: [
@@ -85,6 +107,9 @@ const albumPhotoIds: Record<Exclude<CollectionId, "library" | "favorites">, stri
   iceland: ["kirkjufell", "plane-wreck", "skogafoss"],
   madeira: ["fanal", "sea-stack"],
 };
+
+requirePhotoIds(INITIAL_FAVORITE_IDS);
+Object.values(albumPhotoIds).forEach(requirePhotoIds);
 
 const libraryCollections: Collection[] = [
   { id: "library", label: "Library", icon: "library" },

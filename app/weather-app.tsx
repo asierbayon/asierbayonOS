@@ -60,7 +60,7 @@ const TEMPERATURE_COLORS = [
   { from: 16, color: "#ffd60a" },
   { from: 24, color: "#ff9f0a" },
   { from: 32, color: "#ff453a" },
-];
+].sort((left, right) => left.from - right.from);
 
 type Coordinates = { latitude: number; longitude: number };
 type Place = Coordinates & { id: string; name: string };
@@ -72,6 +72,10 @@ const SAVED_PLACES: Place[] = [
   { id: "laax", name: "Laax", latitude: 46.8067, longitude: 9.2583 },
   { id: "bilbao", name: "Bilbao", latitude: 43.263, longitude: -2.935 },
 ];
+
+if (!SAVED_PLACES.some((place) => place.id === FALLBACK_PLACE_ID)) {
+  throw new Error(`Saved places must include ${FALLBACK_PLACE_ID}`);
+}
 
 type CurrentConditions = {
   time: string;
@@ -158,11 +162,28 @@ const readText = (value: unknown) => {
   return value;
 };
 
-const readClockTime = (iso: string) => iso.slice(11, 16);
+const LOCAL_TIMESTAMP = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})/;
 
-const readMinuteOfDay = (iso: string) => {
-  const [hours, minutes] = readClockTime(iso).split(":").map(Number);
-  return hours * 60 + minutes;
+const readLocalTime = (iso: string) => {
+  const match = LOCAL_TIMESTAMP.exec(iso);
+  const date = match?.[1];
+  const hourText = match?.[2];
+  const minuteText = match?.[3];
+  if (!date || !hourText || !minuteText) return null;
+  const hours = Number(hourText);
+  const minutes = Number(minuteText);
+  if (hours > 23 || minutes > 59) return null;
+  return { date, clock: `${hourText}:${minuteText}`, minuteOfDay: hours * 60 + minutes };
+};
+
+const readClockTime = (iso: string) => readLocalTime(iso)?.clock ?? "--:--";
+
+const readMinuteOfDay = (iso: string) => readLocalTime(iso)?.minuteOfDay ?? null;
+
+const readTimestamp = (value: unknown) => {
+  const text = readText(value);
+  if (text === null || readLocalTime(text) === null) return null;
+  return text;
 };
 
 const readDayLabel = (date: string, today: string) => {
@@ -176,7 +197,7 @@ const readDayLabel = (date: string, today: string) => {
 };
 
 const parseCurrent = (current: Record<string, unknown>): CurrentConditions | null => {
-  const time = readText(current.time);
+  const time = readTimestamp(current.time);
   const temperature = readNumber(current.temperature_2m);
   const code = readNumber(current.weather_code);
   if (time === null || temperature === null || code === null) {
@@ -227,8 +248,8 @@ const parseDays = (daily: Record<string, unknown>, today: string): DayForecast[]
       low,
       precipitationChance: readNumber(chances[index]),
       precipitationSum: readNumber(sums[index]),
-      sunrise: readText(sunrises[index]),
-      sunset: readText(sunsets[index]),
+      sunrise: readTimestamp(sunrises[index]),
+      sunset: readTimestamp(sunsets[index]),
       uvMax: readNumber(uvMaxes[index]),
     });
   });
@@ -317,8 +338,10 @@ const parseForecast = (payload: unknown): Forecast | null => {
   if (days.length === 0) {
     return null;
   }
+  const utcOffsetSeconds = readNumber(payload.utc_offset_seconds);
+  if (utcOffsetSeconds === null) return null;
   return {
-    utcOffsetSeconds: readNumber(payload.utc_offset_seconds) ?? 0,
+    utcOffsetSeconds,
     current: conditions,
     hours: parseHours(hourly, conditions, days),
     days,
@@ -386,8 +409,12 @@ const readUvLevel = (uvIndex: number) => {
   return "Extreme";
 };
 
-const readCompassPoint = (degrees: number) =>
-  COMPASS_POINTS[Math.round(degrees / 45) % COMPASS_POINTS.length];
+const readCompassPoint = (degrees: number) => {
+  const index =
+    ((Math.round(degrees / 45) % COMPASS_POINTS.length) + COMPASS_POINTS.length) %
+    COMPASS_POINTS.length;
+  return COMPASS_POINTS[index] ?? "N";
+};
 
 const clampPercent = (value: number) => Math.min(100, Math.max(0, value));
 
@@ -452,6 +479,14 @@ const useNow = () => {
   return now;
 };
 
+const samePlace = (payload: unknown, place: Coordinates) => {
+  if (!isRecord(payload)) return false;
+  const latitude = readNumber(payload.latitude);
+  const longitude = readNumber(payload.longitude);
+  if (latitude === null || longitude === null) return false;
+  return Math.abs(latitude - place.latitude) <= 0.1 && Math.abs(longitude - place.longitude) <= 0.1;
+};
+
 const useForecasts = (places: Place[], isOffline: boolean) => {
   const [forecasts, setForecasts] = useState<Record<string, Forecast>>({});
   const [status, setStatus] = useState<WeatherStatus>("loading");
@@ -468,8 +503,11 @@ const useForecasts = (places: Place[], isOffline: boolean) => {
       setStatus("loading");
     }
     const controller = new AbortController();
+    let cancelled = false;
+    let generation = 0;
 
     const load = async () => {
+      const request = ++generation;
       try {
         const response = await fetch(buildForecastUrl(places), {
           cache: "no-store",
@@ -481,12 +519,14 @@ const useForecasts = (places: Place[], isOffline: boolean) => {
         const payload: unknown = await response.json();
         const results = Array.isArray(payload) ? payload : [payload];
         const next: Record<string, Forecast> = {};
-        places.forEach((place, index) => {
-          const forecast = parseForecast(results[index]);
+        places.forEach((place) => {
+          const match = results.find((result) => samePlace(result, place));
+          const forecast = parseForecast(match);
           if (forecast) {
             next[place.id] = forecast;
           }
         });
+        if (cancelled || request !== generation) return;
         if (Object.keys(next).length === 0) {
           throw new Error("forecast invalid");
         }
@@ -494,7 +534,12 @@ const useForecasts = (places: Place[], isOffline: boolean) => {
         setForecasts(next);
         setStatus("ready");
       } catch {
-        if (controller.signal.aborted || hasForecastRef.current) {
+        if (
+          cancelled ||
+          controller.signal.aborted ||
+          request !== generation ||
+          hasForecastRef.current
+        ) {
           return;
         }
         setStatus("error");
@@ -513,6 +558,7 @@ const useForecasts = (places: Place[], isOffline: boolean) => {
     document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
+      cancelled = true;
       controller.abort();
       window.clearInterval(interval);
       document.removeEventListener("visibilitychange", handleVisibility);
@@ -729,10 +775,11 @@ const DailyCard = ({ forecast }: { forecast: Forecast }) => {
   return (
     <Card title={`${forecast.days.length}-Day Forecast`} icon="calendar" className="col-span-full">
       <ol className="mt-1">
-        {forecast.days.map((day, index) => {
+        {forecast.days.map((day) => {
           const showChance =
             day.precipitationChance !== null && day.precipitationChance >= PRECIPITATION_THRESHOLD;
-          const current = index === 0 ? forecast.current.temperature : null;
+          const current =
+            day.date === forecast.current.time.slice(0, 10) ? forecast.current.temperature : null;
           const condition = skyLabel(skyFromCode(day.code), true);
           return (
             <li
@@ -778,9 +825,19 @@ const SunCurve = ({ sunrise, sunset, now }: { sunrise: number; sunset: number; n
   );
 };
 
+const todayOf = (forecast: Forecast) =>
+  forecast.days.find((day) => day.date === forecast.current.time.slice(0, 10));
+
 const SunTile = ({ forecast }: { forecast: Forecast }) => {
-  const [today, tomorrow] = forecast.days;
-  if (!today.sunrise || !today.sunset) {
+  const today = todayOf(forecast);
+  const tomorrow = forecast.days.find((day) => today !== undefined && day.date > today.date);
+  if (!today?.sunrise || !today.sunset) {
+    return null;
+  }
+  const sunriseMinute = readMinuteOfDay(today.sunrise);
+  const sunsetMinute = readMinuteOfDay(today.sunset);
+  const nowMinute = readMinuteOfDay(forecast.current.time);
+  if (sunriseMinute === null || sunsetMinute === null || nowMinute === null) {
     return null;
   }
   const time = forecast.current.time;
@@ -793,11 +850,7 @@ const SunTile = ({ forecast }: { forecast: Forecast }) => {
     : `Sunset: ${readClockTime(today.sunset)}`;
   return (
     <Tile title={title} icon="sunset" value={readClockTime(value)} footer={footer}>
-      <SunCurve
-        sunrise={readMinuteOfDay(today.sunrise)}
-        sunset={readMinuteOfDay(today.sunset)}
-        now={readMinuteOfDay(time)}
-      />
+      <SunCurve sunrise={sunriseMinute} sunset={sunsetMinute} now={nowMinute} />
     </Tile>
   );
 };
@@ -982,7 +1035,7 @@ const EmptyState = ({ status }: { status: WeatherStatus }) => {
 
 const LocationHero = ({ entry }: { entry: LocationEntry }) => {
   const forecast = entry.forecast;
-  const today = forecast?.days[0];
+  const today = forecast ? todayOf(forecast) : undefined;
   const condition = forecast ? readCondition(forecast) : "";
   return (
     <header className="col-span-full flex flex-col items-center pt-6 pb-8 text-center [text-shadow:0_1px_3px_rgba(0,0,0,0.25)]">
@@ -1010,7 +1063,7 @@ const LocationRow = ({
   onSelect: (id: string) => void;
 }) => {
   const forecast = entry.forecast;
-  const today = forecast?.days[0];
+  const today = forecast ? todayOf(forecast) : undefined;
   const condition = forecast ? readCondition(forecast) : "";
   const temperature = formatDegrees(forecast ? forecast.current.temperature : null);
   const handleClick = () => onSelect(entry.id);

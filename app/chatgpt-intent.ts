@@ -19,7 +19,7 @@ const foldPrompt = (value: string) => {
   const folded = value
     .toLowerCase()
     .normalize("NFD")
-    .replace(/(?<=[a-z])\p{M}+/gu, "")
+    .replace(/([a-z])\p{M}+/gu, "$1")
     .normalize("NFC")
     .replace(/[øæœåłđðþßıŋ]/gu, (letter) => LATIN_EXTRA[letter] ?? letter)
     .replace(/[\u064B-\u065F\u0670]/g, "")

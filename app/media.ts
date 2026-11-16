@@ -349,6 +349,22 @@ export const listenToPlayer = (iframe: HTMLIFrameElement | null, id: string) => 
   postPlayerMessage(iframe, { event: "listening", id, channel: "widget" });
 };
 
+export const isYouTubePlayerEvent = (
+  event: MessageEvent,
+  iframe: HTMLIFrameElement | null,
+) =>
+  iframe !== null &&
+  event.origin === YOUTUBE_ORIGIN &&
+  event.source === iframe.contentWindow;
+
+export const readPlayerErrorCode = (info: unknown) => {
+  if (typeof info !== "object" || info === null) return null;
+  const code = (info as { videoData?: { errorCode?: unknown } }).videoData?.errorCode;
+  if (typeof code !== "string" && typeof code !== "number") return null;
+  if (code === "" || code === "none") return null;
+  return String(code);
+};
+
 type PlayerMessage = { event: string; info: unknown };
 
 export const readPlayerMessage = (data: unknown): PlayerMessage | null => {
@@ -365,3 +381,21 @@ export const readPlayerMessage = (data: unknown): PlayerMessage | null => {
     return null;
   }
 };
+
+const assertYouTubeIds = (ids: readonly string[], label: string) => {
+  const seen = new Set<string>();
+  if (ids.length === 0) throw new Error(`${label} is empty`);
+  ids.forEach((id) => {
+    if (!/^[A-Za-z0-9_-]{11}$/.test(id)) {
+      throw new Error(`${label} id is not a YouTube id: ${id}`);
+    }
+    if (seen.has(id)) throw new Error(`Duplicate ${label} id: ${id}`);
+    seen.add(id);
+  });
+};
+
+assertYouTubeIds(playlist.map((track) => track.videoId), "playlist");
+assertYouTubeIds(
+  youtubeLibrary.map((track) => track.videoId),
+  "library",
+);

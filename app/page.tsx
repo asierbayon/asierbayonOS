@@ -48,8 +48,10 @@ import {
   claimPlayback,
   createPlaybackGate,
   decidePlayback,
+  isYouTubePlayerEvent,
   playlist,
   postPlayerMessage,
+  readPlayerErrorCode,
   readPlayerMessage,
   releasePlayback,
   sendPlayerCommand,
@@ -262,6 +264,13 @@ type OpenWindow = {
   zIndex: number;
   minimizedAt: number | null;
 };
+
+const windowKey = (content: WindowState) => {
+  if (content.kind === "folder") return null;
+  if (content.kind === "image") return `image:${content.memeId}`;
+  if (content.kind === "app") return `app:${content.app}`;
+  return content.kind;
+};
 type WindowStackProps = {
   windowId: number;
   zIndex: number;
@@ -398,7 +407,7 @@ const MAXIMIZE_EASING = "cubic-bezier(0.32, 0.72, 0, 1)";
 const GENIE_ROWS = 28;
 // Wide enough to keep the window's 80px drop shadow unclipped at rest.
 const GENIE_SHADOW_PAD = 120;
-const MENU_BAR_HEIGHT = 34;
+const MENU_BAR_HEIGHT = 28;
 const MIN_WINDOW_WIDTH = 360;
 const MIN_WINDOW_HEIGHT = 220;
 const RESIZE_EDGES: ResizeEdge[] = ["n", "s", "e", "w", "ne", "nw", "se", "sw"];
@@ -673,7 +682,15 @@ const useGenie = (
     const element = windowRef.current;
     const genie = genieRef.current;
     const goal = isMinimized ? 1 : 0;
-    if (!element || genie.progress === goal || !isDesktopViewport()) return;
+    if (!element) return;
+    if (!isDesktopViewport()) {
+      genie.controls?.stop();
+      genie.controls = null;
+      genie.progress = goal;
+      genie.origin = null;
+      return;
+    }
+    if (genie.progress === goal) return;
 
     if (genie.progress === 0) {
       element.getAnimations().forEach((animation) => animation.finish());
@@ -1207,10 +1224,22 @@ const noteFolders: NoteFolder[] = [
   },
 ];
 
-const findFolderByNoteId = (noteId: string) =>
-  noteFolders.find((folder) =>
-    folder.notes.some((note) => note.id === noteId),
-  ) ?? noteFolders[0];
+const noteIds = noteFolders.flatMap((folder) => folder.notes.map((note) => note.id));
+const seenNoteIds = new Set<string>();
+noteIds.forEach((id) => {
+  if (seenNoteIds.has(id)) throw new Error(`Duplicate note id: ${id}`);
+  seenNoteIds.add(id);
+});
+if (noteFolders.length === 0 || noteFolders.some((folder) => folder.notes.length === 0)) {
+  throw new Error("Every notes folder needs at least one note");
+}
+
+const findFolderByNoteId = (noteId: string) => {
+  const match = noteFolders.find((folder) => folder.notes.some((note) => note.id === noteId));
+  const fallback = noteFolders[0];
+  if (!fallback) throw new Error("Every notes folder needs at least one note");
+  return match ?? fallback;
+};
 
 const NotesBackButton = ({
   label,
@@ -2057,6 +2086,7 @@ function VideoWindow({
   onPlayingChange: (isPlaying: boolean) => void;
 } & WindowStackProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [hasPlayerError, setHasPlayerError] = useState(false);
   const volumeRef = useRef(volume);
   const isPlaybackActiveRef = useRef(isPlaybackActive);
   const canTakePlaybackRef = useRef(canTakePlayback);
@@ -2134,11 +2164,16 @@ function VideoWindow({
     };
 
     const handlePlayerMessage = (event: MessageEvent) => {
-      if (event.source !== iframeRef.current?.contentWindow) {
+      if (!isYouTubePlayerEvent(event, iframeRef.current)) {
         return;
       }
       const message = readPlayerMessage(event.data);
       if (!message) {
+        return;
+      }
+      if (message.event === "onError" || readPlayerErrorCode(message.info)) {
+        setHasPlayerError(true);
+        onPlayingChangeRef.current(false);
         return;
       }
       if (message.event === "onStateChange" && typeof message.info === "number") {
@@ -2175,7 +2210,14 @@ function VideoWindow({
           referrerPolicy="strict-origin-when-cross-origin"
         />
         <YouTubePlaybackOverlay status={playbackStatus} playbackId={playbackId} />
-        {hasStartupError && !isOffline ? <YouTubeStartupError onRetry={retry} /> : null}
+        {hasPlayerError || (hasStartupError && !isOffline) ? (
+          <YouTubeStartupError
+            onRetry={() => {
+              setHasPlayerError(false);
+              retry();
+            }}
+          />
+        ) : null}
       </div>
     </WindowShell>
   );
@@ -2200,6 +2242,7 @@ type PlayerInfo = {
   playerState?: unknown;
   currentTime?: unknown;
   duration?: unknown;
+  videoData?: { video_id?: unknown };
 };
 
 const readFiniteNumber = (value: unknown) =>
@@ -2339,6 +2382,8 @@ const useSpotifyPlayer = ({
   const wantsPlaybackRef = useRef(false);
   const isInterruptedRef = useRef(isInterrupted);
   const awaitingTrackRef = useRef(false);
+  const reportedVideoIdRef = useRef<string | null>(null);
+  const [playerError, setPlayerError] = useState(false);
   const playerStateRef = useRef<number>(YOUTUBE_STATE.unstarted);
   const trackIndexRef = useRef(0);
   const loadedVideoIdRef = useRef(spotifyPlaylist[0].videoId);
@@ -2438,10 +2483,13 @@ const useSpotifyPlayer = ({
         setPlayerState(YOUTUBE_STATE.paused);
         return;
       }
+      const reportedVideoId = reportedVideoIdRef.current;
+      const isActiveState =
+        state === YOUTUBE_STATE.playing || state === YOUTUBE_STATE.buffering;
       const startedRequestedTrack =
-        (state === YOUTUBE_STATE.playing || state === YOUTUBE_STATE.buffering) &&
-        currentTime !== null &&
-        currentTime < SPOTIFY_TRACK_START_SECONDS;
+        isActiveState &&
+        (reportedVideoId === loadedVideoIdRef.current ||
+          (currentTime !== null && currentTime < SPOTIFY_TRACK_START_SECONDS));
       if (awaitingTrackRef.current && startedRequestedTrack) {
         awaitingTrackRef.current = false;
       }
@@ -2462,11 +2510,15 @@ const useSpotifyPlayer = ({
     };
 
     const handlePlayerMessage = (event: MessageEvent) => {
-      if (event.source !== iframeRef.current?.contentWindow) {
+      if (!isYouTubePlayerEvent(event, iframeRef.current)) {
         return;
       }
       const message = readPlayerMessage(event.data);
       if (!message) {
+        return;
+      }
+      if (message.event === "onError" || readPlayerErrorCode(message.info)) {
+        setPlayerError(true);
         return;
       }
       if (message.event === "onStateChange") {
@@ -2480,6 +2532,9 @@ const useSpotifyPlayer = ({
         return;
       }
       const info = (message.info ?? {}) as PlayerInfo;
+      if (typeof info.videoData?.video_id === "string") {
+        reportedVideoIdRef.current = info.videoData.video_id;
+      }
       const state = readFiniteNumber(info.playerState);
       const currentTime = readFiniteNumber(info.currentTime);
       const duration = readFiniteNumber(info.duration);
@@ -2523,6 +2578,8 @@ const useSpotifyPlayer = ({
     onClaimPlayback();
     requestPlayback();
     awaitingTrackRef.current = true;
+    reportedVideoIdRef.current = null;
+    setPlayerError(false);
     setTrackIndex(wrapTrackIndex(index));
     progressStore.setProgress(EMPTY_PROGRESS);
   };
@@ -2572,9 +2629,12 @@ const useSpotifyPlayer = ({
     audioFrame,
     isReady,
     isOffline,
-    hasPlaybackError,
-    hasStartupError,
-    retry,
+    hasPlaybackError: hasPlaybackError || playerError,
+    hasStartupError: hasStartupError || playerError,
+    retry: () => {
+      setPlayerError(false);
+      retry();
+    },
     isPlaying,
     trackIndex,
     track: spotifyPlaylist[trackIndex],
@@ -4268,12 +4328,15 @@ const DESKTOP_WIDGET_HEIGHT = 166;
 const DESKTOP_WIDGET_GAP = 16;
 const SPOTIFY_WIDGET_LAYOUT_KEY = "asier-spotify-widget-layout";
 const SPOTIFY_WIDGET_LAYOUT = "square-below-weather";
-const DESKTOP_ICON_ORDER = ["projects-folder", "iq-image", "smart-rich-image"];
+const FIXED_DESKTOP_ICON_IDS = ["projects-folder"] as const;
 const STRAY_ICON_ID = "folder";
 const STRAY_ICON_ANCHOR = { x: 0.21, y: 0.64 };
 const FALLBACK_DESKTOP_SIZE: DesktopSize = { width: 1440, height: 872 };
 
-const createDefaultDesktopPositions = ({ width, height }: DesktopSize) => {
+const createDefaultDesktopPositions = (
+  { width, height }: DesktopSize,
+  iconIds: readonly string[],
+) => {
   const toPercent = (left: number, top: number): IconPosition => ({
     x: (left / width) * 100,
     y: (top / height) * 100,
@@ -4295,7 +4358,7 @@ const createDefaultDesktopPositions = ({ width, height }: DesktopSize) => {
       (height - DOCK_CLEARANCE) * STRAY_ICON_ANCHOR.y,
     ),
   };
-  DESKTOP_ICON_ORDER.forEach((id, index) => {
+  iconIds.forEach((id, index) => {
     const column = Math.floor(index / rowsPerColumn);
     const row = index % rowsPerColumn;
     positions[id] = toPercent(
@@ -4306,9 +4369,6 @@ const createDefaultDesktopPositions = ({ width, height }: DesktopSize) => {
   return positions;
 };
 
-const defaultDesktopPositions = createDefaultDesktopPositions(
-  FALLBACK_DESKTOP_SIZE,
-);
 
 const readDesktopPositions = (fallback: Record<string, IconPosition>) => {
   try {
@@ -4362,8 +4422,24 @@ const memeImages = [
 
 type MemeId = (typeof memeImages)[number]["id"];
 
-const findMemeImage = (id: MemeId): MemeImage =>
-  memeImages.find((meme) => meme.id === id) ?? memeImages[0];
+const DESKTOP_ICON_ORDER = [
+  ...FIXED_DESKTOP_ICON_IDS,
+  ...memeImages.map((meme) => meme.id),
+] as const;
+
+const defaultDesktopPositions = createDefaultDesktopPositions(
+  FALLBACK_DESKTOP_SIZE,
+  DESKTOP_ICON_ORDER,
+);
+
+const positionFor = (positions: Record<string, IconPosition>, id: string): IconPosition =>
+  positions[id] ?? { x: 4, y: 4 };
+
+const findMemeImage = (id: MemeId): MemeImage => {
+  const meme = memeImages.find((item) => item.id === id);
+  if (!meme) throw new Error(`Unknown meme ${id}`);
+  return meme;
+};
 
 const PREVIEW_ZOOM_MIN = 25;
 const PREVIEW_ZOOM_MAX = 400;
@@ -4546,8 +4622,19 @@ const useElementSize = <T extends HTMLElement>() => {
   return { ref, size };
 };
 
-const PreviewGlyph = ({ name }: { name: string }) => {
-  const glyphs: Record<string, ReactNode> = {
+type PreviewGlyphName =
+  | MarkupTool
+  | "sidebar"
+  | "minus"
+  | "plus"
+  | "markup"
+  | "rotate"
+  | "share"
+  | "undo"
+  | "clear";
+
+const PreviewGlyph = ({ name }: { name: PreviewGlyphName }) => {
+  const glyphs = {
     sidebar: (
       <>
         <rect x="1.4" y="2" width="13.2" height="12" rx="1.6" />
@@ -4608,7 +4695,7 @@ const PreviewGlyph = ({ name }: { name: string }) => {
         <path d="M4.2 4.6 5 13.2h6l.8-8.6" />
       </>
     ),
-  };
+  } satisfies Record<PreviewGlyphName, ReactNode>;
 
   return (
     <svg className="preview-glyph" viewBox="0 0 16 16" aria-hidden="true">
@@ -4662,7 +4749,12 @@ const readSavedMarks = (storageKey: string): Mark[] => {
     if (!Array.isArray(parsed)) {
       return [];
     }
-    return parsed.filter(isSavedMark);
+    const seen = new Set<number>();
+    return parsed.filter(isSavedMark).filter((mark) => {
+      if (seen.has(mark.id)) return false;
+      seen.add(mark.id);
+      return true;
+    });
   } catch {
     return [];
   }
@@ -4685,6 +4777,16 @@ const PreviewApp = ({ meme, marks, setMarks }: PreviewAppProps) => {
   const [rotation, setRotation] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(() => !isCompactViewport());
   const [markupOpen, setMarkupOpen] = useState(() => !isCompactViewport());
+
+  useEffect(() => {
+    const media = window.matchMedia(PREVIEW_COMPACT_QUERY);
+    const syncPanels = () => {
+      setSidebarOpen(!media.matches);
+      setMarkupOpen(!media.matches);
+    };
+    media.addEventListener("change", syncPanels);
+    return () => media.removeEventListener("change", syncPanels);
+  }, []);
   const [markupTool, setMarkupTool] = useState<MarkupTool>("pen");
   const [markupColor, setMarkupColor] = useState<string>(previewColors[0].value);
   const [draft, setDraft] = useState<StrokeMark | null>(null);
@@ -4768,6 +4870,7 @@ const PreviewApp = ({ meme, marks, setMarks }: PreviewAppProps) => {
         return;
       }
       event.preventDefault();
+      if (pinch.distance === 0) return;
       const rect = area.getBoundingClientRect();
       const midpoint = readTouchMidpoint(event.touches);
       const scale = readTouchDistance(event.touches) / pinch.distance;
@@ -6353,7 +6456,7 @@ const windowAppId = ({ content }: OpenWindow) => {
 const byMinimizeOrder = (first: OpenWindow, second: OpenWindow) =>
   (first.minimizedAt ?? 0) - (second.minimizedAt ?? 0);
 
-const DARK_WINDOW_APPS: readonly AppId[] = ["spotify", "youtube", "instagram", "weather"];
+const DARK_SURFACE_IDS = new Set<string>(["spotify", "youtube", "instagram", "weather", "video"]);
 
 const describeMinimizedWindow = (item: OpenWindow): MinimizedWindowTile => {
   const { id, content } = item;
@@ -6377,20 +6480,15 @@ const describeMinimizedWindow = (item: OpenWindow): MinimizedWindowTile => {
       variant: "dark",
     };
   }
-  const app = apps.find((entry) => entry.id === windowAppId(item)) ?? apps[0];
-  const variant = DARK_WINDOW_APPS.includes(app.id) ? "dark" : "paper";
+  const app = apps.find((entry) => entry.id === windowAppId(item));
+  if (!app) return { id, label: "Window", variant: "paper" };
+  const variant = DARK_SURFACE_IDS.has(app.id) ? "dark" : "paper";
   return { id, label: app.name, icon: app.icon, variant };
 };
 
-const LIGHT_CONTENT_WINDOWS: readonly string[] = [
-  ...DARK_WINDOW_APPS,
-  "instagram",
-  "video",
-];
-
 const readStatusTone = (item: OpenWindow | null): StatusTone => {
   if (!item) return "light";
-  if (LIGHT_CONTENT_WINDOWS.includes(windowAppId(item))) return "light";
+  if (DARK_SURFACE_IDS.has(windowAppId(item))) return "light";
   return "dark";
 };
 
@@ -6558,7 +6656,7 @@ export default function Home() {
   > | null>(null);
   const [iconPositionsReady, setIconPositionsReady] = useState(false);
   const layoutIconPositions = desktopSize
-    ? createDefaultDesktopPositions(desktopSize)
+    ? createDefaultDesktopPositions(desktopSize, DESKTOP_ICON_ORDER)
     : defaultDesktopPositions;
   const iconPositions = savedIconPositions ?? layoutIconPositions;
   const isDesktopLayoutReady = iconPositionsReady && desktopSize !== null;
@@ -6608,17 +6706,27 @@ export default function Home() {
     const id = nextWindowId.current++;
     const cascade = (id - 1) % 6;
     const zIndex = nextWindowZ.current++;
-    setOpenWindows((current) => [
-      ...current,
-      {
-        id,
-        content,
-        offsetX: cascade * 22,
-        offsetY: cascade * 18,
-        zIndex,
-        minimizedAt: null,
-      },
-    ]);
+    setOpenWindows((current) => {
+      const key = windowKey(content);
+      const existing =
+        key === null ? undefined : current.find((item) => windowKey(item.content) === key);
+      if (existing) {
+        return current.map((item) =>
+          item.id === existing.id ? { ...item, content, zIndex, minimizedAt: null } : item,
+        );
+      }
+      return [
+        ...current,
+        {
+          id,
+          content,
+          offsetX: cascade * 22,
+          offsetY: cascade * 18,
+          zIndex,
+          minimizedAt: null,
+        },
+      ];
+    });
   };
   const closeWindow = (id: number) => {
     setOpenWindows((current) => current.filter((item) => item.id !== id));
@@ -6637,13 +6745,17 @@ export default function Home() {
   };
   const showOnlyWindow = (id: number | null) => {
     const zIndex = nextWindowZ.current++;
-    setOpenWindows((current) =>
-      current.map((item) => {
+    setOpenWindows((current) => {
+      let order = current.reduce((highest, item) => Math.max(highest, item.minimizedAt ?? 0), 0);
+      const next = current.map((item) => {
         if (item.id === id) return { ...item, zIndex, minimizedAt: null };
         if (item.minimizedAt !== null) return item;
-        return { ...item, minimizedAt: nextMinimizeOrder.current++ };
-      }),
-    );
+        order += 1;
+        return { ...item, minimizedAt: order };
+      });
+      nextMinimizeOrder.current = order + 1;
+      return next;
+    });
   };
   const handleGoHome = () => showOnlyWindow(null);
   const handleOpenSwitcher = () => setSwitcher({ entryId: foregroundId });
@@ -6676,19 +6788,7 @@ export default function Home() {
   }, [foregroundId, isSwitcherOpen]);
 
   const openNotes = (target: NotesTarget) => {
-    const notesWindow = openWindows.find(
-      (item) => item.content.kind === "notes",
-    );
-    if (!notesWindow) {
-      addWindow({ kind: "notes", ...target });
-      return;
-    }
-    const zIndex = nextWindowZ.current++;
-    updateWindow(notesWindow.id, {
-      zIndex,
-      minimizedAt: null,
-      content: { kind: "notes", ...target },
-    });
+    addWindow({ kind: "notes", ...target });
   };
 
   useLayoutEffect(() => {
@@ -6711,10 +6811,13 @@ export default function Home() {
     const measuredHeight = element?.clientHeight ?? 0;
     const fallback =
       measuredWidth > 0 && measuredHeight > 0
-        ? createDefaultDesktopPositions({
-            width: measuredWidth,
-            height: measuredHeight,
-          })
+        ? createDefaultDesktopPositions(
+            {
+              width: measuredWidth,
+              height: measuredHeight,
+            },
+            DESKTOP_ICON_ORDER,
+          )
         : defaultDesktopPositions;
     const stored = readDesktopPositions(fallback);
     const hasSquareLayout =
@@ -6736,8 +6839,10 @@ export default function Home() {
   }, [savedIconPositions]);
 
   const handleOpenProjectsFolder = () => {
+    const project = projects[0];
+    if (!project) return;
     setSelected("projects-folder");
-    openNotes({ noteId: projects[0].id, view: "list" });
+    openNotes({ noteId: project.id, view: "list" });
   };
   const handleOpenSecretFolder = () => {
     setSelected("folder");
@@ -6745,77 +6850,22 @@ export default function Home() {
   };
   const handleOpenMemeImage = (memeId: MemeId) => {
     setSelected(memeId);
-    const imageWindow = openWindows.find(
-      (item) => item.content.kind === "image" && item.content.memeId === memeId,
-    );
-    if (!imageWindow) {
-      addWindow({ kind: "image", memeId });
-      return;
-    }
-    focusWindow(imageWindow.id);
+    addWindow({ kind: "image", memeId });
   };
   const openVideo = () => {
     claimAudible("video");
     setVideoPlaybackRequest((current) => current + 1);
-    const existing = openWindows.find((item) => item.content.kind === "video");
-    if (existing) {
-      focusWindow(existing.id);
-      return;
-    }
-    const id = nextWindowId.current++;
-    const cascade = (id - 1) % 6;
-    const zIndex = nextWindowZ.current++;
-    setOpenWindows((current) => {
-      const alreadyOpen = current.find((item) => item.content.kind === "video");
-      if (!alreadyOpen) {
-        return [
-          ...current,
-          {
-            id,
-            content: { kind: "video" },
-            offsetX: cascade * 22,
-            offsetY: cascade * 18,
-            zIndex,
-            minimizedAt: null,
-          },
-        ];
-      }
-      return current.map((item) => {
-        if (item.id !== alreadyOpen.id) return item;
-        return { ...item, zIndex: nextWindowZ.current++, minimizedAt: null };
-      });
-    });
+    addWindow({ kind: "video" });
   };
   const openSpotify = () => {
-    const spotifyWindow = openWindows.find(
-      (item) => item.content.kind === "spotify",
-    );
-    if (!spotifyWindow) {
-      addWindow({ kind: "spotify" });
-      return;
-    }
-    focusWindow(spotifyWindow.id);
+    addWindow({ kind: "spotify" });
   };
   const openYouTube = () => {
-    const youtubeWindow = openWindows.find(
-      (item) => item.content.kind === "youtube",
-    );
-    if (!youtubeWindow) {
-      addWindow({ kind: "youtube" });
-      return;
-    }
-    focusWindow(youtubeWindow.id);
+    addWindow({ kind: "youtube" });
   };
   const openWeather = () => {
     setSelected("weather");
-    const weatherWindow = openWindows.find(
-      (item) => item.content.kind === "weather",
-    );
-    if (!weatherWindow) {
-      addWindow({ kind: "weather" });
-      return;
-    }
-    focusWindow(weatherWindow.id);
+    addWindow({ kind: "weather" });
   };
   const handleSelectIcon = (id: string) => {
     setSelected(id);
@@ -6826,22 +6876,9 @@ export default function Home() {
       [id]: position,
     }));
   };
-  const findAppWindow = (kind: AppId) => {
-    const matching = openWindows.filter((item) => windowAppId(item) === kind);
-    const visible = matching.filter((item) => item.minimizedAt === null);
-    if (visible.length > 0) {
-      return visible.reduce((top, item) => (item.zIndex > top.zIndex ? item : top));
-    }
-    return [...matching].sort(byMinimizeOrder).at(-1);
-  };
   const openApp = (app: DockApp) => {
     if ("href" in app) return;
     setSelected(app.id);
-    const existing = findAppWindow(app.id);
-    if (existing) {
-      focusWindow(existing.id);
-      return;
-    }
     if (app.id === "notes") {
       openNotes({ noteId: "about" });
       return;
@@ -7046,7 +7083,7 @@ export default function Home() {
           id="projects-folder"
           label="Projects"
           selected={selected === "projects-folder"}
-          position={iconPositions["projects-folder"]}
+          position={positionFor(iconPositions, "projects-folder")}
           onSelect={handleSelectIcon}
           onOpen={handleOpenProjectsFolder}
           onMove={handleMoveIcon}
@@ -7055,7 +7092,7 @@ export default function Home() {
           id="folder"
           label="Don't Open"
           selected={selected === "folder"}
-          position={iconPositions.folder}
+          position={positionFor(iconPositions, "folder")}
           onSelect={handleSelectIcon}
           onOpen={handleOpenSecretFolder}
           onMove={handleMoveIcon}
@@ -7068,21 +7105,21 @@ export default function Home() {
             icon={meme.src}
             variant="picture"
             selected={selected === meme.id}
-            position={iconPositions[meme.id]}
+            position={positionFor(iconPositions, meme.id)}
             onSelect={handleSelectIcon}
             onOpen={() => handleOpenMemeImage(meme.id)}
             onMove={handleMoveIcon}
           />
         ))}
         <DesktopWidget
-          position={iconPositions["weather-widget"]}
+          position={positionFor(iconPositions, "weather-widget")}
           onMove={(position) => handleMoveIcon("weather-widget", position)}
           onOpen={openWeather}
         >
           <WeatherWidget variant="desktop" weather={zurichWeather} status={weatherStatus} />
         </DesktopWidget>
         <DesktopWidget
-          position={iconPositions["spotify-widget"]}
+          position={positionFor(iconPositions, "spotify-widget")}
           onMove={(position) => handleMoveIcon("spotify-widget", position)}
           onOpen={openSpotify}
           label="Spotify widget. Press Enter to open Spotify. Drag or use arrow keys to move."

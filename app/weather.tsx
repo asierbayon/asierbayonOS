@@ -180,6 +180,7 @@ const parseZurichWeather = (payload: unknown): ZurichWeather | null => {
   const code = readNumber(current.weather_code);
   const currentTime = current.time;
   if (temperature === null || code === null || typeof currentTime !== "string") return null;
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(currentTime)) return null;
 
   const times = hourly.time;
   const temps = hourly.temperature_2m;
@@ -249,8 +250,10 @@ export const useZurichWeather = (isOffline: boolean) => {
 
     const controller = new AbortController();
     let cancelled = false;
+    let generation = 0;
 
     const load = async () => {
+      const request = ++generation;
       try {
         const response = await fetch(FORECAST_URL, {
           cache: "no-store",
@@ -259,11 +262,11 @@ export const useZurichWeather = (isOffline: boolean) => {
         if (!response.ok) throw new Error("forecast failed");
         const next = parseZurichWeather(await response.json());
         if (!next) throw new Error("forecast invalid");
-        if (cancelled) return;
+        if (cancelled || request !== generation) return;
         setWeather(next);
         setStatus("ready");
       } catch (error) {
-        if (cancelled) return;
+        if (cancelled || request !== generation) return;
         if (error instanceof DOMException && error.name === "AbortError") return;
         if (weatherRef.current) return;
         setStatus("error");

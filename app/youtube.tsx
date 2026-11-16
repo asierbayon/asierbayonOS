@@ -22,6 +22,8 @@ import {
   YOUTUBE_STATE,
   acknowledgePause,
   decidePlayback,
+  isYouTubePlayerEvent,
+  readPlayerErrorCode,
   type NowPlayingTrack,
   type PlaybackGate,
   type YouTubeFeedItem,
@@ -326,6 +328,8 @@ const VideoPlayer = ({
   onEnded,
 }: VideoPlayerProps) => {
   const volumeRef = useRef(volume);
+  const [playerErrorVideoId, setPlayerErrorVideoId] = useState<string | null>(null);
+  const hasPlayerError = playerErrorVideoId === video.videoId;
   const sawPlaybackRef = useRef(false);
   const { status, playbackId, isStalledRef } = useYouTubeOfflinePlayback(
     iframeRef,
@@ -388,11 +392,15 @@ const VideoPlayer = ({
     };
 
     const handlePlayerMessage = (event: MessageEvent) => {
-      if (event.source !== iframeRef.current?.contentWindow) {
+      if (!isYouTubePlayerEvent(event, iframeRef.current)) {
         return;
       }
       const message = readPlayerMessage(event.data);
       if (!message) {
+        return;
+      }
+      if (message.event === "onError" || readPlayerErrorCode(message.info)) {
+        setPlayerErrorVideoId(video.videoId);
         return;
       }
       if (message.event === "onStateChange" && typeof message.info === "number") {
@@ -411,7 +419,7 @@ const VideoPlayer = ({
 
     window.addEventListener("message", handlePlayerMessage);
     return () => window.removeEventListener("message", handlePlayerMessage);
-  }, [iframeRef, isStalledRef, playbackGateRef]);
+  }, [iframeRef, isStalledRef, playbackGateRef, video.videoId]);
 
   return (
     <div className={`yt-player ${status}`}>
@@ -424,7 +432,14 @@ const VideoPlayer = ({
         referrerPolicy="strict-origin-when-cross-origin"
       />
       <YouTubePlaybackOverlay status={status} playbackId={playbackId} />
-      {hasStartupError && !isOffline ? <YouTubeStartupError onRetry={retry} /> : null}
+      {hasPlayerError || (hasStartupError && !isOffline) ? (
+        <YouTubeStartupError
+          onRetry={() => {
+            setPlayerErrorVideoId(null);
+            retry();
+          }}
+        />
+      ) : null}
     </div>
   );
 };
