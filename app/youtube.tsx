@@ -327,6 +327,7 @@ const VideoPlayer = ({
 }: VideoPlayerProps) => {
   const volumeRef = useRef(volume);
   const sawPlaybackRef = useRef(false);
+  const lastStateRef = useRef<number | null>(null);
   const { status, playbackId, isStalledRef } = useYouTubeOfflinePlayback(
     iframeRef,
     isOffline,
@@ -355,8 +356,13 @@ const VideoPlayer = ({
   useEffect(() => {
     const handleState = (state: number, fromStateChange: boolean) => {
       const gate = playbackGateRef.current;
+      // infoDelivery and onStateChange both report each transition.
+      const isRepeatedEnd =
+        state === YOUTUBE_STATE.ended && lastStateRef.current === YOUTUBE_STATE.ended;
+      lastStateRef.current = state;
       if (isActivePlayerState(state)) {
         const decision = decidePlayback(gate, "youtube", fromStateChange, !isStalledRef.current);
+        if (decision === "wait") return;
         if (decision === "suppress") {
           sendPlayerCommand(iframeRef.current, "pauseVideo");
           onStateChangeRef.current(YOUTUBE_STATE.paused);
@@ -381,7 +387,11 @@ const VideoPlayer = ({
         }
       }
       onStateChangeRef.current(state);
-      if (state !== YOUTUBE_STATE.ended || playbackGateRef.current.owner !== "youtube") {
+      if (
+        state !== YOUTUBE_STATE.ended ||
+        isRepeatedEnd ||
+        playbackGateRef.current.owner !== "youtube"
+      ) {
         return;
       }
       onEndedRef.current();

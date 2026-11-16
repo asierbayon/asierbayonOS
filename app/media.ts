@@ -313,15 +313,17 @@ export const acknowledgePause = (gate: PlaybackGate, source: AudibleSource) => {
 
 // A repeated status update must not start a player that lost the session.
 // Only a real state change, or the player that already owns it, may continue.
+// The embed reports each transition as infoDelivery just before onStateChange,
+// so a status update from another player waits for that state change to decide.
 export const decidePlayback = (
   gate: PlaybackGate,
   source: AudibleSource,
   fromStateChange: boolean,
   canTake: boolean,
-): "allow" | "suppress" => {
+): "allow" | "suppress" | "wait" => {
   if (!canTake || gate.held[source]) return "suppress";
   if (gate.owner === source) return "allow";
-  if (!fromStateChange) return "suppress";
+  if (!fromStateChange) return "wait";
   return "allow";
 };
 
@@ -347,6 +349,22 @@ export const applyPlayerVolume = (
 
 export const listenToPlayer = (iframe: HTMLIFrameElement | null, id: string) => {
   postPlayerMessage(iframe, { event: "listening", id, channel: "widget" });
+};
+
+// The embed only reports events the parent has subscribed to; the handshake alone
+// delivers infoDelivery updates but never onStateChange.
+export const subscribeToPlayerEvent = (
+  iframe: HTMLIFrameElement | null,
+  id: string,
+  event: string,
+) => {
+  postPlayerMessage(iframe, {
+    event: "command",
+    func: "addEventListener",
+    args: [event],
+    id,
+    channel: "widget",
+  });
 };
 
 type PlayerMessage = { event: string; info: unknown };

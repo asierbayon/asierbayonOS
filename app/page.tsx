@@ -2120,6 +2120,7 @@ function VideoWindow({
           fromStateChange,
           canTakePlaybackRef.current && !isStalledRef.current,
         );
+        if (decision === "wait") return;
         if (decision === "suppress") {
           sendVideoCommand(iframeRef.current, "pauseVideo");
           onPlayingChangeRef.current(false);

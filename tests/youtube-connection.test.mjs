@@ -42,12 +42,15 @@ function setup() {
   const { connectYouTubePlayer } = compile('youtube-connection', {
     window, navigator, require: () => media,
   });
-  const connect = () => connectYouTubePlayer(iframe, 'test-player', () => ready++, () => failed++);
+  let sentAtReady = null;
+  const onReady = () => { ready++; sentAtReady = sent.length; };
+  const connect = () => connectYouTubePlayer(iframe, 'test-player', onReady, () => failed++);
   const stop = connect();
   return {
     sent, timers, messages, loads, navigator, connect, stop,
     get reloads() { return reloads; },
     get ready() { return ready; },
+    get sentAtReady() { return sentAtReady; },
     get failed() { return failed; },
     tick(ms) { for (let t = 0; t < ms; t += 250) for (const fn of [...timers.values()]) fn(); },
     reply(event = 'onReady', info, overrides = {}) {
@@ -59,6 +62,11 @@ function setup() {
   };
 }
 
+const subscription = {
+  event: 'command', func: 'addEventListener', args: ['onStateChange'],
+  id: 'test-player', channel: 'widget',
+};
+
 test('retries a lost handshake, including when iframe load already happened', () => {
   const s = setup();
   assert.equal(s.sent.length, 1);
@@ -69,8 +77,30 @@ test('retries a lost handshake, including when iframe load already happened', ()
   assert.equal(s.ready, 1);
   assert.equal(s.failed, 0);
   assert.equal(s.reloads, 0);
-  assert.equal(s.sent.length, 5);
+  assert.equal(s.sent.length, 6);
   assert.equal(s.messages.size + s.loads.size + s.timers.size, 0);
+});
+
+test('subscribes to state changes once the player answers, before reporting ready', () => {
+  const s = setup();
+  s.tick(500);
+  assert.ok(s.sent.every((message) => message.event === 'listening'));
+  s.reply('initialDelivery', { playerState: -1 });
+  s.reply('onReady');
+  s.tick(1000);
+  assert.deepEqual(s.sent.at(-1), subscription);
+  assert.equal(s.sent.filter((message) => message.func === 'addEventListener').length, 1);
+  assert.equal(s.ready, 1);
+  assert.equal(s.sentAtReady, s.sent.length);
+});
+
+test('subscribes again after a reloaded iframe answers', () => {
+  const s = setup();
+  s.tick(12000);
+  assert.equal(s.reloads, 1);
+  assert.ok(!s.sent.some((message) => message.func === 'addEventListener'));
+  s.reply();
+  assert.deepEqual(s.sent.at(-1), subscription);
 });
 
 test('reloads only twice, then fails and allows a fresh connection attempt', () => {
@@ -141,4 +171,19 @@ test('unmount cleanup stops all retries and ignores late readiness', () => {
   assert.equal(s.failed, 0);
   assert.equal(s.reloads, 0);
   assert.equal(s.messages.size + s.loads.size + s.timers.size, 0);
+});
+
+test('a native play after another source claimed is decided by its state change', () => {
+  const { createPlaybackGate, claimPlayback, acknowledgePause, decidePlayback } = compile('media');
+  const gate = createPlaybackGate();
+  claimPlayback(gate, 'video');
+  claimPlayback(gate, 'spotify');
+  assert.equal(decidePlayback(gate, 'video', false, true), 'suppress');
+  assert.equal(decidePlayback(gate, 'video', true, true), 'suppress');
+  acknowledgePause(gate, 'video');
+  assert.equal(decidePlayback(gate, 'video', false, true), 'wait');
+  assert.equal(decidePlayback(gate, 'video', true, true), 'allow');
+  assert.equal(decidePlayback(gate, 'video', true, false), 'suppress');
+  claimPlayback(gate, 'video');
+  assert.equal(decidePlayback(gate, 'video', false, true), 'allow');
 });

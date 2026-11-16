@@ -1,4 +1,9 @@
-import { listenToPlayer, readPlayerMessage, YOUTUBE_ORIGIN } from "./media";
+import {
+  listenToPlayer,
+  readPlayerMessage,
+  subscribeToPlayerEvent,
+  YOUTUBE_ORIGIN,
+} from "./media";
 
 const HANDSHAKE_INTERVAL_MS = 250;
 const STARTUP_TIMEOUT_MS = 12000;
@@ -38,6 +43,7 @@ export function connectYouTubePlayer(
       !(message?.event === "infoDelivery" && typeof info?.playerState === "number")
     ) return;
     stop();
+    subscribeToPlayerEvent(iframe, id, "onStateChange");
     onReady();
   };
 
