@@ -38,6 +38,9 @@ If you share a bit more context, I can tailor this to your situation.`;
 
 // The answer is cut off mid-sentence before it gets erased.
 const ANSWER_CUTOFF = ANSWER.indexOf("Momentum");
+if (ANSWER_CUTOFF < 0) {
+  throw new Error('The ChatGPT answer must include the word "Momentum".');
+}
 
 // The film types the first three lines and drops the knock in all at once.
 const MATRIX_SCRIPT: readonly ScriptLine[] = [

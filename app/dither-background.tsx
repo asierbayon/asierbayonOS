@@ -23,8 +23,10 @@ const BAYER_4X4 = [
   [15, 7, 13, 5],
 ];
 
-const hexToRgb = (hex: string): RGB => {
-  const value = hex.replace("#", "");
+const hexToRgb = (hex: string): RGB | null => {
+  const match = /^#([0-9a-fA-F]{6})$/.exec(hex);
+  if (!match?.[1]) return null;
+  const value = match[1];
   return [
     parseInt(value.slice(0, 2), 16),
     parseInt(value.slice(2, 4), 16),
@@ -67,6 +69,7 @@ const DitherBackground = ({
 
     const primary = hexToRgb(primaryColor);
     const secondary = hexToRgb(secondaryColor);
+    if (!primary || !secondary) return;
     const image = new Image();
     const media = window.matchMedia(MOBILE_QUERY);
     let isImageLoaded = false;
@@ -84,6 +87,7 @@ const DitherBackground = ({
       const width = canvas.clientWidth;
       const height = canvas.clientHeight;
       const activeGridSize = resolveGridSize();
+      if (activeGridSize <= 0) return;
       const columns = Math.ceil(width / activeGridSize);
       const rows = Math.ceil(height / activeGridSize);
       if (columns === 0 || rows === 0) return;
@@ -95,7 +99,12 @@ const DitherBackground = ({
       canvas.height = rows;
       drawImageCover(context, image, columns, rows);
 
-      const pixels = context.getImageData(0, 0, columns, rows);
+      let pixels: ImageData;
+      try {
+        pixels = context.getImageData(0, 0, columns, rows);
+      } catch {
+        return;
+      }
       const { data } = pixels;
 
       for (let y = 0; y < rows; y++) {
