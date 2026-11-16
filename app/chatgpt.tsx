@@ -279,7 +279,7 @@ const ChatGPTApp = () => {
     <div
       data-theme={isMatrix ? "matrix" : "light"}
       data-follows-keyboard
-      className="chatgpt-app group relative flex h-full min-h-[320px] w-full flex-col max-[700px]:min-h-0 overflow-hidden bg-white text-[15px] leading-7 text-[#0d0d0d] transition-colors duration-[1400ms] [font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe_UI',sans-serif] data-[theme=matrix]:bg-black data-[theme=matrix]:font-mono data-[theme=matrix]:text-[#3dff7a]"
+      className="chatgpt-app group relative flex h-full min-h-[320px] w-full flex-col mobile:min-h-0 overflow-hidden bg-white text-[15px] leading-7 text-[#0d0d0d] transition-colors duration-[1400ms] [font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe_UI',sans-serif] data-[theme=matrix]:bg-black data-[theme=matrix]:font-mono data-[theme=matrix]:text-[#3dff7a]"
     >
       <header className="flex h-12 shrink-0 items-center justify-between px-3">
         <span className="flex items-center gap-1 rounded-lg px-2 py-1 text-lg font-medium">

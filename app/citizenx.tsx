@@ -14,7 +14,7 @@ const CitizenXOverview = () => (
       mobileGridSize={1}
       primaryColor="#1d2d4e"
       secondaryColor="#fffcf8"
-      className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.07] [mask-image:linear-gradient(to_bottom,transparent,#000_45%)] max-[700px]:[mask-image:linear-gradient(to_bottom,transparent,#000_70%)] forced-colors:hidden"
+      className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.07] [mask-image:linear-gradient(to_bottom,transparent,#000_45%)] mobile:[mask-image:linear-gradient(to_bottom,transparent,#000_70%)] forced-colors:hidden"
     />
 
     <div className="citizenx-scroll relative">

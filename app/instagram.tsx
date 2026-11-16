@@ -1123,7 +1123,7 @@ export default function InstagramProfile() {
 
   return (
     <div className="instagram-app @container relative flex min-h-0 flex-1 flex-col bg-black text-[#f5f5f5] select-text [color-scheme:dark]">
-      <header className="flex h-11 shrink-0 items-center justify-center border-b border-[#262626] px-4 min-[701px]:hidden">
+      <header className="flex h-11 shrink-0 items-center justify-center border-b border-[#262626] px-4 desktop:hidden">
         <h1 className="truncate text-base font-bold">{USERNAME}</h1>
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
@@ -1132,7 +1132,7 @@ export default function InstagramProfile() {
             <UserAvatar handle={USERNAME} className="size-[86px] @2xl:size-[150px]" />
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-                <h2 className="hidden text-xl leading-6 font-normal min-[701px]:block">{USERNAME}</h2>
+                <h2 className="hidden text-xl leading-6 font-normal desktop:block">{USERNAME}</h2>
                 <ProfileActions isFollowing={isFollowing} onToggleFollow={handleToggleFollow} className="hidden @2xl:flex" />
               </div>
               <p className="text-sm leading-[18px] font-semibold @2xl:mt-4 @2xl:text-base">Asier Bayón</p>

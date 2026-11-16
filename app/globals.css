@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+@custom-variant mobile (@media (width <= 700px));
+@custom-variant desktop (@media (width > 700px));
+
 /* Moving an app card must not invalidate styles throughout its contents. */
 @property --mobile-transform {
   syntax: "<transform-list>";
@@ -1003,7 +1006,7 @@ body {
   overflow: hidden;
   background: #fff;
 }
-@media (min-width: 701px) {
+@media (width > 700px) {
   .window-shell:has(.photos-app) {
     width: min(1080px, calc(100vw - 80px));
     height: min(84vh, 740px);
@@ -1459,7 +1462,7 @@ body {
     0 0 0 2px rgba(10, 132, 255, 0.55),
     0 0.15em 0.5em rgba(0, 0, 0, 0.22);
 }
-@media (min-width: 701px) {
+@media (width > 700px) {
   .window-shell:has(.video-app) {
     width: min(720px, calc(100vw - 64px));
     height: min(460px, calc(100vh - 120px));
@@ -2513,13 +2516,13 @@ body {
 .window-shell:has(.instagram-app) .browser-bar > div i::before {
   border-color: #a8a8a8;
 }
-@media (min-width: 701px) {
+@media (width > 700px) {
   .window-shell:has(.instagram-app) {
     width: min(1040px, calc(100vw - 120px));
     height: min(86vh, 780px);
   }
 }
-@media (max-width: 700px) {
+@media (width <= 700px) {
   .window-shell:has(.instagram-app) .browser-bar {
     display: none;
   }
@@ -2534,13 +2537,13 @@ body {
 .window-shell:has(.facebook-app) .browser-bar {
   flex-shrink: 0;
 }
-@media (min-width: 701px) {
+@media (width > 700px) {
   .window-shell:has(.facebook-app) {
     width: min(960px, calc(100vw - 120px));
     height: min(86vh, 780px);
   }
 }
-@media (max-width: 700px) {
+@media (width <= 700px) {
   .window-shell:has(.facebook-app) .browser-bar {
     display: none;
   }
@@ -2957,7 +2960,7 @@ body {
   }
 }
 
-@media (max-width: 700px) {
+@media (width <= 700px) {
   .spotify-app {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -3094,13 +3097,13 @@ body {
 .window-shell:has(.youtube-app) .browser-bar > div {
   background: #2c2c2c;
 }
-@media (min-width: 701px) {
+@media (width > 700px) {
   .window-shell:has(.youtube-app) {
     width: min(1160px, calc(100vw - 80px));
     height: min(86vh, 780px);
   }
 }
-@media (max-width: 700px) {
+@media (width <= 700px) {
   .window-shell:has(.youtube-app) .browser-bar {
     display: none;
   }
@@ -3585,7 +3588,7 @@ body {
   }
 }
 
-@media (max-width: 700px) {
+@media (width <= 700px) {
   html,
   body {
     position: fixed;
@@ -4323,7 +4326,7 @@ body {
   }
 }
 
-@media (max-width: 700px) {
+@media (width <= 700px) {
   .cc-pull-handle {
     position: fixed;
     z-index: 999;
@@ -5371,7 +5374,7 @@ body {
   visibility: hidden;
   pointer-events: none;
 }
-@media (min-width: 701px) {
+@media (width > 700px) {
   .window-shell.window-maximized {
     left: 8px;
     top: 36px;
@@ -5389,7 +5392,7 @@ body {
 .app-switcher-scroller {
   display: none;
 }
-@media (max-width: 700px) {
+@media (width <= 700px) {
   .mobile-dock {
     z-index: 3;
   }

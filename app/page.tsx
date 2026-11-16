@@ -37,6 +37,7 @@ import YouTubeApp from "./youtube";
 import { useYouTubeConnection, YouTubeStartupError } from "./use-youtube-connection";
 import ChatGPTApp from "./chatgpt";
 import StartupScreen from "./startup-screen";
+import { isDesktopViewport, isMobileViewport } from "./viewport";
 import {
   useOfflinePlayback,
   useYouTubeOfflinePlayback,
@@ -390,7 +391,6 @@ type ResizeSession = {
   start: Box;
 };
 
-const MOBILE_BREAKPOINT = 700;
 const MINIMIZE_DURATION = 0.6;
 const RESTORE_DURATION = 0.48;
 const MAXIMIZE_DURATION_MS = 460;
@@ -496,8 +496,6 @@ const clearGenieFrame = (element: HTMLElement, transform: string) => {
   element.style.clipPath = "";
   element.style.opacity = "";
 };
-
-const isDesktopViewport = () => window.innerWidth >= MOBILE_BREAKPOINT;
 
 type Viewport = { width: number; height: number };
 type ScreenPoint = { x: number; y: number };
@@ -938,8 +936,7 @@ function WindowShell({
   };
 
   const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!dragRef.current || !windowRef.current || window.innerWidth < 700)
-      return;
+    if (!dragRef.current || !windowRef.current || isMobileViewport()) return;
     const nextLeft = Math.max(
       8,
       Math.min(
@@ -3717,7 +3714,6 @@ const VELOCITY_WINDOW = 90;
 const OVERPULL_LIMIT = 0.14;
 // Touches starting this far down still pull, beyond the strip that captures taps.
 const EDGE_ZONE = 76;
-const MOBILE_QUERY = "(max-width: 700px)";
 // Sideways travel allowed per unit of downward travel before a pull is refused.
 const HANDLE_SLANT = 2;
 const EDGE_SLANT = 1;
@@ -4028,7 +4024,7 @@ const MobileControlCenter = ({ controls }: { controls: ControlCenterState }) => 
     if (isVisible || gestureRef.current || event.touches.length !== 1) {
       return;
     }
-    if (!window.matchMedia(MOBILE_QUERY).matches) {
+    if (!isMobileViewport()) {
       return;
     }
     const touch = event.changedTouches[0];
@@ -4368,7 +4364,6 @@ const findMemeImage = (id: MemeId): MemeImage =>
 const PREVIEW_ZOOM_MIN = 25;
 const PREVIEW_ZOOM_MAX = 400;
 const PREVIEW_ZOOM_STEP = 25;
-const PREVIEW_COMPACT_QUERY = "(max-width: 700px)";
 
 const PREVIEW_TEXT_SCALE = 0.034;
 
@@ -4406,9 +4401,6 @@ type ZoomAnchor = {
   fractionY: number;
 };
 type PinchState = { distance: number; zoom: number; anchor: ZoomAnchor };
-
-const isCompactViewport = () =>
-  typeof window !== "undefined" && window.matchMedia(PREVIEW_COMPACT_QUERY).matches;
 
 const readZoomAnchor = (
   area: HTMLElement,
@@ -4683,8 +4675,8 @@ type PreviewAppProps = {
 const PreviewApp = ({ meme, marks, setMarks }: PreviewAppProps) => {
   const [zoom, setZoom] = useState(100);
   const [rotation, setRotation] = useState(0);
-  const [sidebarOpen, setSidebarOpen] = useState(() => !isCompactViewport());
-  const [markupOpen, setMarkupOpen] = useState(() => !isCompactViewport());
+  const [sidebarOpen, setSidebarOpen] = useState(() => !isMobileViewport());
+  const [markupOpen, setMarkupOpen] = useState(() => !isMobileViewport());
   const [markupTool, setMarkupTool] = useState<MarkupTool>("pen");
   const [markupColor, setMarkupColor] = useState<string>(previewColors[0].value);
   const [draft, setDraft] = useState<StrokeMark | null>(null);
@@ -6501,7 +6493,7 @@ const useTypingViewport = () => {
     };
 
     const syncTypingViewport = () => {
-      const isMobile = window.matchMedia(MOBILE_QUERY).matches;
+      const isMobile = isMobileViewport();
       const focused = document.activeElement;
       const followsKeyboard =
         isTextField(focused) && Boolean(focused.closest("[data-follows-keyboard]"));
@@ -6516,7 +6508,7 @@ const useTypingViewport = () => {
     };
 
     const handleTouchEnd = (event: TouchEvent) => {
-      if (!window.matchMedia(MOBILE_QUERY).matches) return;
+      if (!isMobileViewport()) return;
       const target = event.target;
       if (!isTextField(target)) return;
       if (!target.closest("[data-follows-keyboard]")) return;

@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { MOBILE_MEDIA_QUERY } from "./viewport";
 
 type RGB = [number, number, number];
-
-const MOBILE_QUERY = "(max-width: 700px)";
 
 type DitherBackgroundProps = {
   src: string;
@@ -68,7 +67,7 @@ const DitherBackground = ({
     const primary = hexToRgb(primaryColor);
     const secondary = hexToRgb(secondaryColor);
     const image = new Image();
-    const media = window.matchMedia(MOBILE_QUERY);
+    const media = window.matchMedia(MOBILE_MEDIA_QUERY);
     let isImageLoaded = false;
 
     const resolveGridSize = () => {
