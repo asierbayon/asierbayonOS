@@ -31,6 +31,7 @@ import InstagramProfile from "./instagram";
 import PhotosApp from "./photos";
 import FacebookFeed from "./facebook";
 import HomeIndicatorSpacer from "./home-indicator-spacer";
+import GitHubWidget, { GITHUB_PROFILE_URL, useGitHubContributions } from "./github";
 import WeatherWidget, { useZurichWeather } from "./weather";
 import WeatherApp from "./weather-app";
 import YouTubeApp from "./youtube";
@@ -4266,8 +4267,13 @@ const DESKTOP_ICON_ROW_HEIGHT = 126;
 const DESKTOP_ICON_COLUMN_GAP = 16;
 const DESKTOP_WIDGET_HEIGHT = 166;
 const DESKTOP_WIDGET_GAP = 16;
+const SPOTIFY_WIDGET_WIDTH = 166;
+const DESKTOP_WIDGET_COLUMN = 176;
+const GITHUB_WIDGET_WIDTH = DESKTOP_WIDGET_COLUMN * 3;
 const SPOTIFY_WIDGET_LAYOUT_KEY = "asier-spotify-widget-layout";
 const SPOTIFY_WIDGET_LAYOUT = "square-below-weather";
+const GITHUB_WIDGET_LAYOUT_KEY = "asier-github-widget-layout";
+const GITHUB_WIDGET_LAYOUT = "match-neighbor-height";
 const DESKTOP_ICON_ORDER = ["projects-folder", "iq-image", "smart-rich-image"];
 const STRAY_ICON_ID = "folder";
 const STRAY_ICON_ANCHOR = { x: 0.21, y: 0.64 };
@@ -4284,12 +4290,21 @@ const createDefaultDesktopPositions = ({ width, height }: DesktopSize) => {
     Math.floor(usableHeight / DESKTOP_ICON_ROW_HEIGHT),
   );
   const firstColumnLeft = width - DESKTOP_EDGE_INSET - DESKTOP_ICON_WIDTH;
+  const iconColumns = Math.ceil(DESKTOP_ICON_ORDER.length / rowsPerColumn);
+  const iconsLeft =
+    firstColumnLeft - (iconColumns - 1) * (DESKTOP_ICON_WIDTH + DESKTOP_ICON_COLUMN_GAP);
+  const spotifyTop = DESKTOP_EDGE_INSET + DESKTOP_WIDGET_HEIGHT + DESKTOP_WIDGET_GAP;
+  const besideSpotifyLeft = DESKTOP_EDGE_INSET + SPOTIFY_WIDGET_WIDTH + DESKTOP_WIDGET_GAP;
+  const githubFitsBesideSpotify =
+    besideSpotifyLeft + GITHUB_WIDGET_WIDTH + DESKTOP_WIDGET_GAP <= iconsLeft;
+  const githubLeft = githubFitsBesideSpotify ? besideSpotifyLeft : DESKTOP_EDGE_INSET;
+  const githubTop = githubFitsBesideSpotify
+    ? spotifyTop
+    : spotifyTop + DESKTOP_WIDGET_HEIGHT + DESKTOP_WIDGET_GAP;
   const positions: Record<string, IconPosition> = {
     "weather-widget": toPercent(DESKTOP_EDGE_INSET, DESKTOP_EDGE_INSET),
-    "spotify-widget": toPercent(
-      DESKTOP_EDGE_INSET,
-      DESKTOP_EDGE_INSET + DESKTOP_WIDGET_HEIGHT + DESKTOP_WIDGET_GAP,
-    ),
+    "spotify-widget": toPercent(DESKTOP_EDGE_INSET, spotifyTop),
+    "github-widget": toPercent(githubLeft, githubTop),
     [STRAY_ICON_ID]: toPercent(
       width * STRAY_ICON_ANCHOR.x,
       (height - DOCK_CLEARANCE) * STRAY_ICON_ANCHOR.y,
@@ -6722,7 +6737,13 @@ export default function Home() {
     if (stored && !hasSquareLayout) {
       stored["spotify-widget"] = fallback["spotify-widget"];
     }
+    const hasGithubHeight =
+      localStorage.getItem(GITHUB_WIDGET_LAYOUT_KEY) === GITHUB_WIDGET_LAYOUT;
+    if (stored && !hasGithubHeight) {
+      stored["github-widget"] = fallback["github-widget"];
+    }
     localStorage.setItem(SPOTIFY_WIDGET_LAYOUT_KEY, SPOTIFY_WIDGET_LAYOUT);
+    localStorage.setItem(GITHUB_WIDGET_LAYOUT_KEY, GITHUB_WIDGET_LAYOUT);
     setSavedIconPositions(stored);
     setIconPositionsReady(true);
   }, []);
@@ -6817,6 +6838,9 @@ export default function Home() {
     }
     focusWindow(weatherWindow.id);
   };
+  const openGitHub = () => {
+    window.open(GITHUB_PROFILE_URL, "_blank", "noopener,noreferrer");
+  };
   const handleSelectIcon = (id: string) => {
     setSelected(id);
   };
@@ -6895,6 +6919,8 @@ export default function Home() {
   const isBatteryMenuOpen = openMenuBarPanel === "battery";
 
   const { weather: zurichWeather, status: weatherStatus } = useZurichWeather(isOffline);
+  const { contributions: githubContributions, status: githubStatus } =
+    useGitHubContributions(isOffline);
   const canVideoTakePlayback = (item: OpenWindow) => {
     if (item.content.kind !== "video") return false;
     if (item.minimizedAt !== null) return false;
@@ -7089,6 +7115,15 @@ export default function Home() {
           className="desktop-widget-square"
         >
           <SpotifyWidget player={spotify} variant="desktop" onOpen={openSpotify} />
+        </DesktopWidget>
+        <DesktopWidget
+          position={iconPositions["github-widget"]}
+          onMove={(position) => handleMoveIcon("github-widget", position)}
+          onOpen={openGitHub}
+          label="GitHub contribution graph. Press Enter to open GitHub. Drag or use arrow keys to move."
+          className="desktop-widget-github"
+        >
+          <GitHubWidget contributions={githubContributions} status={githubStatus} />
         </DesktopWidget>
       </div>
 
